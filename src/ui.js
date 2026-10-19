@@ -17,7 +17,7 @@ export function windName(dir, str) {
 }
 
 export class UI {
-  constructor({ onPose, onView, onFire, onWind, wind, poses, views, levels, onLevel, onCut, onXray }) {
+  constructor({ onPose, onView, onFire, onWind, wind, poses, views, levels, onLevel, onCut, onXray, onLabels }) {
     const el = document.getElementById('ui');
     el.innerHTML = `
       <h1>HMS Victory <span>1805</span></h1>
@@ -30,7 +30,8 @@ export class UI {
         <div class="windHint" id="windHint"></div></div>
       <div class="group"><div class="label">Inside: show decks down to</div><div class="row" id="levels"></div>
         <div class="slider"><span>Cut open</span><input id="cut" type="range" min="0" max="100" step="1" value="0"></div>
-        <label class="check"><input id="xray" type="checkbox"> X-ray hull</label></div>
+        <label class="check"><input id="xray" type="checkbox"> X-ray hull</label>
+        <label class="check"><input id="labels" type="checkbox" checked> Room labels</label></div>
       <div class="group"><div class="label">View</div><div class="row" id="views"></div></div>
       <div class="hint">Drag to orbit · scroll to zoom · right-drag to pan</div>`;
     this.poseButtons = {};
@@ -61,6 +62,7 @@ export class UI {
     this.setLevel('all');
     el.querySelector('#cut').oninput = (e) => onCut(+e.target.value / 100);
     el.querySelector('#xray').onchange = (e) => onXray(e.target.checked);
+    el.querySelector('#labels').onchange = (e) => onLabels(e.target.checked);
     this.fireGroup = el.querySelector('#fireGroup');
     el.querySelector('#fire').onclick = onFire;
     const wd = el.querySelector('#windDir'), ws = el.querySelector('#windStr');

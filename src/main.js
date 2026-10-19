@@ -6,6 +6,8 @@ import { Ship, POSES } from './ship.js';
 import { UI } from './ui.js';
 import { findClashes } from './clash.js';
 import { Cutaway, LEVELS } from './cutaway.js';
+import { Rooms } from './rooms.js';
+import { DECK_NAMES } from './roomData.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -63,6 +65,14 @@ scene.add(sea.mesh);
 const ship = new Ship(scene, sea);
 scene.add(ship.root);
 
+const info = document.getElementById('info');
+function showRoom(r) {
+  info.innerHTML = `<span class="close">×</span><h2>${r.name}</h2><div class="deck">${DECK_NAMES[r.deck]}</div>
+    <div>${r.note}</div>${r.source ? `<div class="src">Source: ${r.source}</div>` : ''}`;
+  info.style.display = 'block';
+  info.querySelector('.close').onclick = () => { info.style.display = 'none'; };
+}
+const rooms = new Rooms(ship.body, document.body, showRoom);
 const cut = new Cutaway(ship, sunLight);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -109,7 +119,8 @@ const ui = params.get('ui') === '0' ? null : new UI({
   onWind: (dir, str) => ship.setWind(dir, str),
   wind: { dir: +(params.get('wind') ?? -135), str: +(params.get('windStr') ?? 0.6) },
   levels: Object.keys(LEVELS),
-  onLevel: (l) => cut.setLevel(l),
+  onLevel: (l) => { cut.setLevel(l); rooms.setLevel(l); },
+  onLabels: (on) => rooms.setEnabled(on),
   onCut: (f) => cut.setCut(f),
   onXray: (on) => cut.setXray(on),
   poses: ship.poseNames(),
@@ -130,7 +141,7 @@ if (params.has('cam')) {
   controls.target.set(c[3], c[4], c[5]);
 }
 ui?.setPose(ship.pose);
-if (params.has('level')) { cut.setLevel(params.get('level')); ui?.setLevel(params.get('level')); }
+if (params.has('level')) { cut.setLevel(params.get('level')); rooms.setLevel(params.get('level')); ui?.setLevel(params.get('level')); }
 if (params.has('cut')) cut.setCut(+params.get('cut'));
 if (params.has('xray')) cut.setXray(true);
 if (params.has('fire')) setTimeout(() => ship.fireBroadside(), 300);
@@ -162,6 +173,7 @@ function frame() {
   }
   controls.update();
   renderer.render(scene, camera);
+  rooms.render(scene, camera, window.innerWidth, window.innerHeight);
   frames++;
   if (frames === 3) window.__ready = true;
   requestAnimationFrame(frame);

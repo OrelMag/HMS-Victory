@@ -6,7 +6,7 @@ import { DECK } from './config.js';
 // Cut height for each level: just under the beams of the deck above.
 export const LEVELS = {
   all: Infinity,
-  quarterdeck: DECK.qd + 2.0,
+  quarterdeck: DECK.poop - 0.52,
   upper: DECK.qd - 0.52,
   middle: DECK.upper - 0.52,
   lower: DECK.middle - 0.52,

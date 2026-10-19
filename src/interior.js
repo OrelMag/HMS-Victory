@@ -82,7 +82,7 @@ export function buildInterior() {
 
   // Full decks from stern to bow, pierced by the hatchways.
   const levels = [
-    ['orlop', -15.5, 22.0],
+    ['orlop', xStern(DECK.orlop) + 0.35, xBow(DECK.orlop) - 0.5],
     ['lower', xStern(DECK.lower) + 0.25, xBow(DECK.lower) - 0.35],
     ['middle', xStern(DECK.middle) + 0.25, xBow(DECK.middle) - 0.35],
     ['upper', xStern(DECK.upper) + 0.6, xBow(DECK.upper) - 0.6],
@@ -128,7 +128,7 @@ export function buildInterior() {
   // Beams under every deck, about 1.25 m apart; hatchways are framed between them.
   const beams = [];
   const underDecks = [
-    ['orlop', -15.3, 21.8], ['lower', -26.5, 27.5], ['middle', -26.8, 27.6], ['upper', -27.0, 27.6],
+    ['orlop', -26.2, 26.8], ['lower', -26.5, 27.5], ['middle', -26.8, 27.6], ['upper', -27.0, 27.6],
     ['qd', -27.5, QD_FWD], ['qd', FC_AFT, 27.8], ['poop', -28.2, POOP_FWD],
   ];
   for (const [name, x0, x1] of underDecks) {

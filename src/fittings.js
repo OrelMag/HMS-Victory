@@ -167,7 +167,7 @@ export class Fittings {
     }
 
     // Wheel just forward of the poop, binnacle before it.
-    const wx = POOP_FWD + 1.4;
+    const wx = POOP_FWD - 1.0;
     const wheel = buildWheel(M);
     wheel.position.set(wx, deckY('qd', wx), 0);
     G.add(wheel);
@@ -177,7 +177,7 @@ export class Fittings {
     const bt = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.brass);
     bt.position.y = 1.0;
     bin.add(bb, bt);
-    bin.position.set(wx + 1.6, deckY('qd', wx + 1.6), 0);
+    bin.position.set(wx + 2.0, deckY('qd', wx + 2.0), 0);
     G.add(bin);
 
     // Capstan drumhead on the quarterdeck, jeer capstan in the waist.
@@ -199,8 +199,10 @@ export class Fittings {
       c.traverse((o) => { if (o.isMesh) o.castShadow = true; });
       G.add(c);
     };
-    capstan(-5.6, 'qd');
-    capstan(QD_FWD + 2.5, 'upper', 0.65);
+    for (const deck of ['middle', 'lower']) {
+      capstan(-6.4, deck, deck === 'middle' ? 0.75 : 0.62);
+      capstan(3.7, deck, deck === 'middle' ? 0.55 : 0.48);
+    }
 
     // Skylight over the admiral's quarters.
     {
