@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { Sea } from './sea.js';
-import { Ship } from './ship.js';
+import { Ship, POSES } from './ship.js';
 import { UI } from './ui.js';
 import { findClashes } from './clash.js';
 
@@ -95,7 +95,11 @@ function setView(name, instant = false) {
 let camTween = null;
 
 const ui = params.get('ui') === '0' ? null : new UI({
-  onPose: (p) => ship.setPose(p),
+  onPose: (p) => {
+    ship.setPose(p);
+    const w = POSES[p].wind;
+    if (w) { ship.setWind(w.dir, w.str); ui?.windSet(w.dir, w.str); }
+  },
   onView: (v) => setView(v),
   onFire: () => ship.fireBroadside(),
   onWind: (dir, str) => ship.setWind(dir, str),
@@ -105,7 +109,12 @@ const ui = params.get('ui') === '0' ? null : new UI({
 });
 
 ship.setPose(params.get('pose') || 'sail', true);
-ship.setWind(+(params.get('wind') ?? -135), +(params.get('windStr') ?? 0.6), true);
+{
+  const pw = POSES[ship.pose].wind;
+  const dir = +(params.get('wind') ?? pw?.dir ?? -135), str = +(params.get('windStr') ?? pw?.str ?? 0.6);
+  ship.setWind(dir, str, true);
+  ui?.windSet(dir, str);
+}
 setView(params.get('view') || 'quarter', true);
 if (params.has('cam')) {
   const c = params.get('cam').split(',').map(Number);

@@ -321,6 +321,30 @@ export class Fittings {
       G.add(a);
       this.anchors.push({ obj: a, side, home: a.position.clone() });
     }
+    // Sheet anchors (one each side) and the spare (starboard) stowed upright against the side,
+    // in the gaps between the middle- and upper-deck ports abaft the fore channels.
+    const upright = (x, side) => {
+      const a = buildAnchor();
+      const yTop = deckY('upper', x) + 3.4;
+      const z = halfBreadth(x, yTop - 4) + 0.35;
+      a.position.set(x, yTop - 5.65, side * z);
+      a.rotation.set(side * 0.06, Math.PI / 2, 0);
+      G.add(a);
+    };
+    upright(14.075, 1);
+    upright(14.075, -1);
+    upright(11.025, 1);
+    // Stream anchor and kedge lashed on the booms in the waist.
+    const flat = (scale, x, z) => {
+      const a = buildAnchor();
+      a.scale.setScalar(scale);
+      a.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
+      a.position.set(x - 2.6 * scale, deckY('qd', x) + 0.5, z);
+      G.add(a);
+    };
+    flat(0.6, 12.6, 4.7);
+    flat(0.42, 12.4, -4.7);
+
     // Anchor cable (shown when the bower is let go).
     this.cable = new THREE.Mesh(new THREE.BufferGeometry(), M.rope);
     this.cable.castShadow = true;

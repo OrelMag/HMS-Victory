@@ -5,7 +5,7 @@ import { chromium } from 'playwright-core';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const poses = process.argv.slice(2).length ? process.argv.slice(2) : ['sail', 'action', 'anchor'];
+const poses = process.argv.slice(2).length ? process.argv.slice(2) : ['sail', 'trafalgar', 'action', 'anchor'];
 const url = pathToFileURL(resolve('index.html')).href;
 const browser = await chromium.launch({
   channel: process.env.SHOT_CHANNEL || 'msedge', headless: true,

@@ -11,7 +11,9 @@ import { Flag } from './flags.js';
 import { Effects, Wake } from './effects.js';
 
 const SAIL_KEYS = ['course', 'topsail', 'topgallant', 'royal', 'sprit',
-  'foreTopmastStaysail', 'jib', 'flyingJib', 'mainTopmastStaysail', 'mizzenStaysail', 'spanker'];
+  'foreTopmastStaysail', 'jib', 'flyingJib', 'mainTopmastStaysail', 'mizzenStaysail', 'spanker',
+  'stunTop', 'stunTg', 'stunLower'];
+const NO_STUNS = { stunTop: 0, stunTg: 0, stunLower: 0 };
 
 const allSails = (v) => Object.fromEntries(SAIL_KEYS.map((k) => [k, v]));
 
@@ -19,19 +21,27 @@ const allSails = (v) => Object.fromEntries(SAIL_KEYS.map((k) => [k, v]));
 // rest follow from the wind (see windEffects).
 export const POSES = {
   sail: {
+    set: { ...allSails(1), sprit: 0, ...NO_STUNS },
+    hoist: { topsail: 1, topgallant: 1, royal: 1 },
+    ports: 0, runOut: 0, anchor: 0, gaffEnsign: 1, jack: 0, unionStays: 0,
+  },
+  // Going into action at Trafalgar: very light wind from astern, every stitch set including
+  // studding sails, ports open and guns run out, Union flags on the stays (Nelson's order).
+  trafalgar: {
     set: { ...allSails(1), sprit: 0 },
     hoist: { topsail: 1, topgallant: 1, royal: 1 },
-    ports: 0, runOut: 0, anchor: 0, gaffEnsign: 1, jack: 0,
+    ports: 1, runOut: 1, anchor: 0, gaffEnsign: 1, jack: 0, unionStays: 1,
+    wind: { dir: -160, str: 0.15 },
   },
   action: {
     set: { ...allSails(0), topsail: 1, foreTopmastStaysail: 1, jib: 1, spanker: 1 },
     hoist: { topsail: 1, topgallant: 1, royal: 0 },
-    ports: 1, runOut: 1, anchor: 0, gaffEnsign: 1, jack: 0,
+    ports: 1, runOut: 1, anchor: 0, gaffEnsign: 1, jack: 0, unionStays: 0,
   },
   anchor: {
     set: allSails(0),
     hoist: { topsail: 0, topgallant: 0, royal: 0 },
-    ports: 0, runOut: 0, anchor: 1, gaffEnsign: 0, jack: 1,
+    ports: 0, runOut: 0, anchor: 1, gaffEnsign: 0, jack: 1, unionStays: 0,
   },
 };
 
@@ -39,6 +49,7 @@ export const POSES = {
 const AREA = {
   course: 0.3, topsail: 0.32, topgallant: 0.13, royal: 0.05, sprit: 0,
   foreTopmastStaysail: 0.04, jib: 0.04, flyingJib: 0.03, mainTopmastStaysail: 0.02, mizzenStaysail: 0.02, spanker: 0.05,
+  stunTop: 0.06, stunTg: 0.03, stunLower: 0.05,
 };
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 const wrapDeg = (a) => ((a + 540) % 360) - 180;
@@ -73,6 +84,7 @@ export function windEffects(S, dir, str) {
 function flat(p) {
   const o = {};
   for (const [k, v] of Object.entries(p)) {
+    if (k === 'wind') continue;
     if (typeof v === 'object') for (const [k2, v2] of Object.entries(v)) o[`${k}.${k2}`] = v2;
     else o[k] = v;
   }
@@ -89,7 +101,8 @@ function windowFor(key, from, to) {
   if (key === 'ports') return up ? [0.1, 0.45] : [0.5, 0.85];
   if (key === 'runOut') return up ? [0.45, 0.95] : [0.05, 0.45];
   if (key === 'anchor') return up ? [0.55, 0.95] : [0.0, 0.4];
-  if (key === 'gaffEnsign' || key === 'jack') return [0.5, 0.52];
+  if (key === 'gaffEnsign' || key === 'jack' || key === 'unionStays') return [0.5, 0.52];
+  if (key.startsWith('set.stun')) return up ? [0.75, 1.0] : [0.0, 0.3];
   return [0, 1];
 }
 
@@ -133,8 +146,10 @@ export class Ship {
     this.flags = {
       ensign: new Flag('ensign', 8.5, 4.25, this.body),
       admiral: new Flag('admiral', 5.0, 2.5, this.body),
-      pennant: new Flag('pennant', 16, 0.9, this.body, 0.85),
       jack: new Flag('union', 4.2, 2.1, this.body),
+      // Nelson's order: Union flags at the fore topgallant stay and main topmast stay.
+      unionFore: new Flag('union', 3.6, 1.8, this.body),
+      unionMain: new Flag('union', 3.6, 1.8, this.body),
     };
 
     this.effects = new Effects(scene);
@@ -174,7 +189,7 @@ export class Ship {
   }
 
   fireBroadside() {
-    if (this.pose !== 'action' || this.broadside) return;
+    if (!POSES[this.pose].ports || this.broadside) return;
     const list = this.guns.ports.filter((p) => p.side === 1).sort((a, b) => b.x - a.x);
     let t = 0;
     for (const p of list) {
@@ -239,6 +254,7 @@ export class Ship {
     for (const s of this.sails.square) s.update(S[`set.${s.kind}`], W.belly, t, W.luff);
     for (const s of this.sails.stay) s.update(S[`set.${s.kind}`], W.belly, t, W.lee);
     this.sails.spanker.update(S['set.spanker'], W.belly, t, W.lee);
+    for (const s of this.sails.stun) s.update(S[`set.${s.kind}`], W.belly, t);
 
     // Broadside: recoil and run out again.
     let gunsDirty = this.dirty;
@@ -278,7 +294,14 @@ export class Ship {
     if (S.gaffEnsign > 0.5) ens.place(peak, flagDir);
     else ens.place(this.fittings.ensignStaff, flagDir);
     this.flags.admiral.place(P(rig.masts.fore, 'poleHead').add(new THREE.Vector3(0, 0.1, 0)), flagDir);
-    this.flags.pennant.place(P(rig.masts.main, 'poleHead').add(new THREE.Vector3(0, 0.1, 0)), flagDir);
+    const onStay = (name, f) => {
+      const [a, b] = this.rigging.stayLines[name];
+      return a.clone().lerp(b, f).add(new THREE.Vector3(0, -0.3, 0));
+    };
+    for (const [flag, stay, f] of [[this.flags.unionFore, 'fore topgallant stay', 0.42], [this.flags.unionMain, 'main topmast stay', 0.5]]) {
+      flag.mesh.visible = S.unionStays > 0.5;
+      flag.place(onStay(stay, f), flagDir);
+    }
     this.flags.jack.mesh.visible = S.jack > 0.5;
     this.flags.jack.place(this.fittings.jackStaff, flagDir);
 

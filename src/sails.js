@@ -2,7 +2,7 @@
 // Each sail has a "set" value: 1 = set and drawing, 0 = furled.
 import * as THREE from 'three';
 import { mats } from './materials.js';
-import { deckY, railTop } from './config.js';
+import { deckY, railTop, halfBreadth } from './config.js';
 
 const _m = new THREE.Matrix4();
 const _m2 = new THREE.Matrix4();
@@ -258,6 +258,77 @@ export class Spanker {
   }
 }
 
+// Studding sail: set outboard of a square sail, between the yardarm above and the boom end
+// of the yard below (or, for a lower studding sail, a boom swung out from the ship's side).
+export class StunSail {
+  constructor(name, yard, footYard, side, lower = null) {
+    this.name = name;
+    this.yard = yard; this.footYard = footYard; this.side = side; this.lower = lower;
+    this.NU = 8; this.NV = 10;
+    this.geo = sailGeometry(this.NU, this.NV);
+    this.mesh = new THREE.Mesh(this.geo, mats().canvas);
+    this.mesh.castShadow = true;
+    this.mesh.frustumCulled = false;
+    yard.group.add(this.mesh);
+    if (lower) {
+      // The lower studding-sail boom, swung out from the fore channels.
+      this.boom = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.08, 1, 8).translate(0, 0.5, 0).rotateZ(-Math.PI / 2), mats().spar);
+      this.boom.castShadow = true;
+      lower.parent.add(this.boom);
+    }
+  }
+
+  update(set, wind, time) {
+    const on = set > 0.02;
+    this.mesh.visible = on;
+    if (this.boom) this.boom.visible = on;
+    if (!on) return;
+    const y = this.yard, sd = this.side;
+    const L = y.L, inner = L * 0.465, boomEnd = L / 2 + 2.4 * y.mast.scale;
+    const wHead = Math.min(boomEnd - inner + 0.6, L * 0.32);
+    const H0 = new THREE.Vector3(0.25, -y.r, sd * inner);
+    const H1 = new THREE.Vector3(0.25, -y.r, sd * (inner + wHead * set));
+    let F0, F1;
+    if (this.footYard) {
+      const fy = this.footYard;
+      const fEnd = fy.L / 2 + 2.4 * fy.mast.scale;
+      F0 = xform(new THREE.Vector3(0.25, fy.r, sd * fy.L * 0.465), fy.group, y.group);
+      F1 = xform(new THREE.Vector3(0.25, fy.r, sd * (fy.L * 0.465 + (fEnd - fy.L * 0.465) * set)), fy.group, y.group);
+    } else {
+      // Lower studding sail: foot spread by the boom out from the side.
+      const { root, dropTo, reach } = this.lower;
+      const zIn = inner * 0.78 + 0.6;
+      F0 = new THREE.Vector3(0.6, -dropTo(), sd * zIn);
+      F1 = new THREE.Vector3(0.6, -dropTo(), sd * (zIn + reach * set));
+      const a = xform(root.clone(), this.lower.parent, this.lower.parent);
+      const b = xform(F1.clone(), y.group, this.lower.parent);
+      this.boom.position.copy(a);
+      this.boom.scale.set(a.distanceTo(b), 1, 1);
+      this.boom.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), b.clone().sub(a).normalize());
+    }
+    const pos = this.geo.attributes.position.array, uv = this.geo.attributes.uv.array;
+    const NU = this.NU, NV = this.NV;
+    const p = new THREE.Vector3(), hi = new THREE.Vector3(), lo = new THREE.Vector3();
+    for (let j = 0; j < NV; j++) {
+      const v = j / (NV - 1);
+      for (let i = 0; i < NU; i++) {
+        const u = i / (NU - 1);
+        hi.copy(H0).lerp(H1, u);
+        lo.copy(F0).lerp(F1, u);
+        p.copy(hi).lerp(lo, v);
+        p.x += 1.1 * wind * set * Math.sin(Math.PI * u) * Math.sin(Math.PI * (0.06 + 0.82 * v));
+        const k = j * NU + i;
+        pos[k * 3] = p.x; pos[k * 3 + 1] = p.y; pos[k * 3 + 2] = p.z;
+        uv[k * 2] = p.z / 2;
+        uv[k * 2 + 1] = p.y / 4;
+      }
+    }
+    this.geo.attributes.position.needsUpdate = true;
+    this.geo.attributes.uv.needsUpdate = true;
+    this.geo.computeVertexNormals();
+  }
+}
+
 // Build every sail for the rig.
 export function buildSails(rig, body) {
   const sails = { square: [], stay: [], spanker: null };
@@ -318,5 +389,25 @@ export function buildSails(rig, body) {
     new THREE.Vector3(miz.x + 3, miz.h.topY + 0.5, 0.6), 0.8);
 
   sails.spanker = new Spanker(miz, rig.gaff, rig.boom);
+
+  // Studding sails on the fore and main: topmast and topgallant both sides; lower on the fore.
+  sails.stun = [];
+  for (const mast of [fore, main]) {
+    const Y = mast.yards;
+    for (const side of [1, -1]) {
+      const add = (kind, s) => { s.kind = kind; s.mastName = mast.name; sails.stun.push(s); };
+      add('stunTop', new StunSail(`${mast.name}-topmast-stunsail`, Y.topsail, Y.course, side));
+      add('stunTg', new StunSail(`${mast.name}-topgallant-stunsail`, Y.topgallant, Y.topsail, side));
+      if (mast === fore) {
+        const yc = deckY('upper', mast.x) + 1.95;
+        add('stunLower', new StunSail(`fore-lower-stunsail`, Y.course, null, side, {
+          parent: rig.group,
+          root: new THREE.Vector3(mast.x + 0.5, yc + 0.4, side * (halfBreadth(mast.x + 0.5, yc) + 0.9)),
+          dropTo: () => Y.course.group.position.y - (railTop(mast.x) + 1.4),
+          reach: 7.5,
+        }));
+      }
+    }
+  }
   return sails;
 }

@@ -1,6 +1,6 @@
 // On-screen controls.
 const LABELS = {
-  sail: 'Full sail', action: 'Cleared for action', anchor: 'At anchor',
+  sail: 'Full sail', trafalgar: 'Trafalgar, 1805', action: 'Cleared for action', anchor: 'At anchor',
   quarter: 'Quarter', broadside: 'Broadside', bow: 'Bow', stern: 'Stern', deck: 'Deck',
   aloft: 'Aloft', galleries: 'Galleries', head: 'Figurehead',
 };
@@ -58,10 +58,15 @@ export class UI {
     };
     wd.oninput = ws.oninput = upd;
     wt.textContent = windName(wind.dir, wind.str);
+    this.windSet = (dir, str) => {
+      wd.value = dir; ws.value = Math.round(str * 100);
+      wt.textContent = windName(dir, str);
+      wh.textContent = '';
+    };
   }
 
   setPose(p) {
     for (const [k, b] of Object.entries(this.poseButtons)) b.classList.toggle('active', k === p);
-    this.fireGroup.style.display = p === 'action' ? '' : 'none';
+    this.fireGroup.style.display = p === 'action' || p === 'trafalgar' ? '' : 'none';
   }
 }

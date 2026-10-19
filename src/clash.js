@@ -48,7 +48,7 @@ function sailTris(sail, toBody) {
 export function findClashes(ship) {
   ship.root.updateMatrixWorld(true);
   const toBody = new THREE.Matrix4().copy(ship.body.matrixWorld).invert();
-  const all = [...ship.sails.square, ...ship.sails.stay, ship.sails.spanker];
+  const all = [...ship.sails.square, ...ship.sails.stay, ship.sails.spanker, ...ship.sails.stun];
   const sails = all.map((s) => sailTris(s, toBody)).filter(Boolean);
 
   // Ropes are built in rig space, which is body space.
