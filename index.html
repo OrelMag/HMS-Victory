@@ -10,7 +10,33 @@
   #ui { position: fixed; top: 16px; left: 16px; width: 250px; padding: 14px 16px; color: #f3ead6;
         background: rgba(18, 16, 13, 0.72); border: 1px solid rgba(201, 145, 58, 0.55); border-radius: 6px;
         backdrop-filter: blur(4px); user-select: none; }
-  #ui h1 { margin: 0 0 10px; font-size: 20px; letter-spacing: 0.06em; font-weight: normal; color: #e7c079; }
+  #ui h1 { margin: 0 0 10px; font-size: 20px; letter-spacing: 0.06em; font-weight: normal; color: #e7c079; display: flex; align-items: center; }
+  #ui h1 span { flex: 1; }
+  #ui #collapse { margin-left: 8px; padding: 2px 8px; font-size: 15px; }
+  #ui.collapsed { width: auto; }
+  #ui.collapsed h1 { margin: 0; }
+  #ui { max-height: calc(100% - 32px); overflow-y: auto; }
+  #info { max-width: calc(100% - 64px); }
+  @media (max-width: 700px) {
+    #ui { top: 8px; left: 8px; width: calc(100% - 50px); max-width: 300px; padding: 10px 12px; }
+    #info { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-width: none; max-height: 45%; }
+  }
+  #loading { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center;
+             background: radial-gradient(ellipse at center, #1d2a36 0%, #0a1018 100%); color: #e7c079; font: 22px Georgia, serif;
+             letter-spacing: 0.08em; transition: opacity 0.6s; }
+  #loading.done { opacity: 0; pointer-events: none; }
+  #loading small { margin-top: 10px; font-size: 13px; color: #a89a80; letter-spacing: 0.04em; }
+  #loading .bar { margin-top: 18px; width: 200px; height: 3px; background: rgba(231,192,121,0.2); overflow: hidden; border-radius: 2px; }
+  #loading .bar::after { content: ''; display: block; width: 40%; height: 100%; background: #e7c079; animation: slide 1.2s infinite ease-in-out; }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+  #stick, #turn { display: none; position: fixed; z-index: 3; touch-action: none; user-select: none; }
+  @media (pointer: coarse) { body.sailor-mode #stick, body.sailor-mode #turn { display: block; } }
+  #stick { left: 28px; bottom: 28px; width: 120px; height: 120px; border-radius: 50%;
+           background: rgba(18,16,13,0.45); border: 1px solid rgba(201,145,58,0.6); }
+  #stick .nub { position: absolute; left: 35px; top: 35px; width: 50px; height: 50px; border-radius: 50%; background: rgba(231,192,121,0.75); }
+  #turn { right: 24px; bottom: 40px; }
+  #turn button { width: 56px; height: 56px; margin-left: 10px; border-radius: 50%; font-size: 24px; color: #f3ead6;
+                 background: rgba(18,16,13,0.55); border: 1px solid rgba(201,145,58,0.6); }
   #ui h1 span { font-size: 13px; color: #c9b79a; margin-left: 4px; }
   #ui .group { margin-top: 10px; }
   #ui .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: #b8a888; margin-bottom: 5px; }
@@ -43,6 +69,7 @@
 </style>
 </head>
 <body>
+<div id="loading">HMS Victory, 1805<small>Rigging the ship…</small><div class="bar"></div></div>
 <div id="app"></div>
 <div id="ui"></div>
 <div id="info"></div>

@@ -35,17 +35,65 @@ export class IsoMode {
       e.preventDefault();
       this.zoom = THREE.MathUtils.clamp(this.zoom * (e.deltaY > 0 ? 1.12 : 1 / 1.12), 4, 40);
     }, { passive: false });
+    // Touch: a joystick to walk, buttons to turn the view, pinch to zoom.
+    this.stick = { x: 0, y: 0 };
+    const pad = document.createElement('div');
+    pad.id = 'stick';
+    pad.innerHTML = '<div class="nub"></div>';
+    const turn = document.createElement('div');
+    turn.id = 'turn';
+    turn.innerHTML = '<button data-d="-1">&#10226;</button><button data-d="1">&#10227;</button>';
+    document.body.append(pad, turn);
+    this.touchUI = [pad, turn];
+    const nub = pad.firstChild;
+    let sid = null;
+    const moveStick = (e) => {
+      const r = pad.getBoundingClientRect();
+      let dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2), dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+      const l = Math.hypot(dx, dy);
+      if (l > 1) { dx /= l; dy /= l; }
+      this.stick = { x: dx, y: dy };
+      nub.style.transform = `translate(${dx * 38}px, ${dy * 38}px)`;
+    };
+    pad.addEventListener('pointerdown', (e) => { sid = e.pointerId; pad.setPointerCapture(sid); moveStick(e); });
+    pad.addEventListener('pointermove', (e) => { if (e.pointerId === sid) moveStick(e); });
+    const endStick = () => { sid = null; this.stick = { x: 0, y: 0 }; nub.style.transform = ''; };
+    pad.addEventListener('pointerup', endStick);
+    pad.addEventListener('pointercancel', endStick);
+    turn.querySelectorAll('button').forEach((b) => { b.onclick = () => { this.thetaTarget += (+b.dataset.d) * Math.PI / 2; }; });
+    const touches = new Map();
+    let pinch0 = null;
+    el.addEventListener('pointerdown', (e) => {
+      if (!this.active || e.pointerType !== 'touch') return;
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touches.size === 2) {
+        const [a, c] = [...touches.values()];
+        pinch0 = { d: Math.hypot(a.x - c.x, a.y - c.y), zoom: this.zoom };
+      }
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!touches.has(e.pointerId)) return;
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch0 && touches.size === 2) {
+        const [a, c] = [...touches.values()];
+        this.zoom = THREE.MathUtils.clamp(pinch0.zoom * pinch0.d / Math.max(10, Math.hypot(a.x - c.x, a.y - c.y)), 4, 40);
+      }
+    });
+    const lift = (e) => { touches.delete(e.pointerId); if (touches.size < 2) pinch0 = null; };
+    el.addEventListener('pointerup', lift);
+    el.addEventListener('pointercancel', lift);
     let down = null;
     el.addEventListener('pointerdown', (e) => { if (this.active) down = { x: e.clientX, y: e.clientY }; });
     el.addEventListener('pointerup', (e) => {
       if (!this.active || !down) return;
-      if (Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6) this.clickTo(e.clientX, e.clientY);
+      if (Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6 && !pinch0) this.clickTo(e.clientX, e.clientY);
       down = null;
     });
   }
 
   enter() {
     this.active = true;
+    document.body.classList.add('sailor-mode');
     this.saved = { level: this.cut.level, cutZ: this.cut.cutZ };
     this.cut.setCut(0);
     this.sailor.setActive(true, this.ship);
@@ -55,6 +103,7 @@ export class IsoMode {
 
   exit() {
     this.active = false;
+    document.body.classList.remove('sailor-mode');
     this.sailor.setActive(false, this.ship);
     this.cut.setLevel(this.saved?.level ?? 'all');
     this.rooms.setLevel(this.saved?.level ?? 'all');
@@ -79,7 +128,9 @@ export class IsoMode {
     const fwd = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
     const right = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
     const c = Math.cos(this.theta), s = Math.sin(this.theta);
-    const move = { x: -c * fwd + s * right, z: -s * fwd - c * right };
+    // Keys, or the touch stick (screen up = forward).
+    const f2 = fwd || -this.stick.y, r2 = right || this.stick.x;
+    const move = { x: -c * f2 + s * r2, z: -s * f2 - c * r2 };
     this.sailor.update(dt, move, k.has('ShiftLeft') || k.has('ShiftRight'), this.ship);
 
     // Peel the decks above him, and show the labels for his deck.

@@ -55,6 +55,11 @@ Day, dusk or night. By night the moon lights the sails, stars come out, the ster
 gallery windows and the poop lanterns glow, and the lanterns below decks light the deck you are
 looking at (the nearest eight cast light).
 
+### Quality and phones
+High, Medium or Low quality (high on desktops, low on phones by default; remembered in the
+browser). On touch screens: pinch and drag in the free camera; in sailor mode an on-screen stick,
+tap to walk, pinch to zoom and buttons to turn the view. The control panel collapses to its title.
+
 ### View modes
 - **Isometric character mode** (Desperados-style): steer a sailor around the ship; decks above
   and the near hull side cut away automatically when he goes below, blocking walls fade
@@ -77,6 +82,8 @@ Tools (need Microsoft Edge, or set `SHOT_CHANNEL=chrome`):
   `node tools/shot.mjs bow "view=bow&pose=action&wind=90&windStr=0.8"`
 - `node tools/walk.mjs`: walks the sailor up and down ladders, through doorways and into guns,
   and flood-fills every deck to check each room can be reached on foot (normal and cleared).
+- `node tools/phone.mjs`: phone emulation test of touch controls and quality switching.
+- `node tools/fps.mjs`: frame time at 1080p for a few views.
 - `node tools/clash.mjs`: checks that no rope or spar passes through a sail, and no sail through
   another, in every pose, across wind directions and strengths, and through every pose change.
 

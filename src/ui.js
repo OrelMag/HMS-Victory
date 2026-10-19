@@ -17,13 +17,15 @@ export function windName(dir, str) {
 }
 
 export class UI {
-  constructor({ onPose, onView, onFire, onWind, wind, poses, views, levels, onLevel, onCut, onXray, onLabels, onMode, onTime }) {
+  constructor({ onPose, onView, onFire, onWind, wind, poses, views, levels, onLevel, onCut, onXray, onLabels, onMode, onTime, onQuality, touch }) {
     const el = document.getElementById('ui');
     el.innerHTML = `
-      <h1>HMS Victory <span>1805</span></h1>
+      <h1>HMS Victory <span>1805</span><button id="collapse" title="Hide or show the controls">&#9776;</button></h1>
+      <div id="panelBody">
       <div class="group"><div class="label">Mode</div><div class="row" id="modes"></div>
-        <div class="hint" id="sailorHint" style="display:none">WASD or arrows to walk, Shift to run, click to walk there.
-        Walk into a ladder to climb. Q / E turn the view, scroll to zoom.</div></div>
+        <div class="hint" id="sailorHint" style="display:none">${touch
+          ? 'Use the stick to walk, or tap where to go. Walk into a ladder to climb. Pinch to zoom; the arrows turn the view.'
+          : 'WASD or arrows to walk, Shift to run, click to walk there. Walk into a ladder to climb. Q / E turn the view, scroll to zoom.'}</div></div>
       <div class="group"><div class="label">Pose</div><div class="row" id="poses"></div></div>
       <div class="group" id="fireGroup"><button id="fire" class="accent">Fire broadside</button></div>
       <div class="group"><div class="label">Wind</div>
@@ -37,7 +39,21 @@ export class UI {
         <label class="check"><input id="xray" type="checkbox"> X-ray hull</label>
         <label class="check"><input id="labels" type="checkbox" checked> Room labels</label></div>
       <div class="group"><div class="label">View</div><div class="row" id="views"></div></div>
-      <div class="hint">Drag to orbit · scroll to zoom · right-drag to pan</div>`;
+      <div class="group"><div class="label">Quality</div><div class="row" id="qualities"></div></div>
+      <div class="hint">${touch ? 'Drag to orbit · pinch to zoom · two-finger drag to pan' : 'Drag to orbit · scroll to zoom · right-drag to pan'}</div>
+      </div>`;
+    const body = el.querySelector('#panelBody');
+    const setCollapsed = (c) => { body.style.display = c ? 'none' : ''; el.classList.toggle('collapsed', c); };
+    el.querySelector('#collapse').onclick = () => setCollapsed(body.style.display !== 'none');
+    if (window.innerWidth < 700) setCollapsed(true);
+    this.qualityButtons = {};
+    for (const [k, label] of [['high', 'High'], ['medium', 'Medium'], ['low', 'Low']]) {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.onclick = () => onQuality(k);
+      el.querySelector('#qualities').appendChild(b);
+      this.qualityButtons[k] = b;
+    }
     this.modeButtons = {};
     const me = el.querySelector('#modes');
     for (const [m, label] of [['free', 'Free camera'], ['sailor', 'Sailor (isometric)']]) {
@@ -104,6 +120,10 @@ export class UI {
       wt.textContent = windName(dir, str);
       wh.textContent = '';
     };
+  }
+
+  setQuality(q) {
+    for (const [k, b] of Object.entries(this.qualityButtons)) b.classList.toggle('active', k === q);
   }
 
   setTime(t) {
