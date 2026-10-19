@@ -185,7 +185,7 @@ export class WalkMap {
     // Furniture (props whose underside is low enough to walk into).
     const bb = new THREE.Box3(), m = new THREE.Matrix4();
     ship.furnishing.traverse((o) => {
-      if (!o.isInstancedMesh || ['hammock', 'lantern', 'plate'].includes(o.name)) return;
+      if (!o.isInstancedMesh || ['hammock', 'lantern', 'plate', 'coil'].includes(o.name) || o.name.startsWith('gear-')) return;
       if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
       for (let i = 0; i < o.count; i++) {
         o.getMatrixAt(i, m);

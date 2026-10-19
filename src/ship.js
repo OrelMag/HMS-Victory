@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { buildHull } from './hull.js';
 import { buildInterior } from './interior.js';
 import { buildFurnishing } from './furnish.js';
+import { buildDeckGear } from './deckgear.js';
 import { TRIM } from './config.js';
 import { Rig } from './masts.js';
 import { buildSails, xform } from './sails.js';
@@ -135,6 +136,8 @@ export class Ship {
     this.fittings = new Fittings(this.body, this.rig);
     this.furnishing = buildFurnishing(this.fittings);
     this.body.add(this.furnishing);
+    // Deck gear lives in the furnishing group so the sailor's walk map sees it (not struck down).
+    this.furnishing.add(buildDeckGear());
     // After dark: what glows (material, day intensity, night intensity) and where the lanterns hang.
     const M = mats();
     this.nightMaterials = [[this.furnishing.userData.glow, 0.9, 3.0], [M.lantern, 0, 3.5]];

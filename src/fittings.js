@@ -206,15 +206,43 @@ export class Fittings {
 
     // Skylight over the admiral's quarters.
     {
+      // A pitched skylight: panelled coaming, two glazed slopes with sash bars, brass guard rods.
       const sk = new THREE.Group();
-      const base = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, 2.0), M.darkWood);
-      base.position.y = 0.25;
-      const roof = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 2.6, 3, 1), M.glass);
-      roof.rotation.z = Math.PI / 2;
-      roof.rotation.x = Math.PI / 6;
-      roof.scale.set(1, 1, 0.9);
-      roof.position.y = 0.75;
-      sk.add(base, roof);
+      const L = 2.6, Wd = 2.0, hb = 0.55, rise = 0.45;
+      const base = new THREE.Mesh(new THREE.BoxGeometry(L, hb, Wd), M.darkWood);
+      base.position.y = hb / 2;
+      sk.add(base);
+      const slope = Math.atan2(rise, Wd / 2), sl = Math.hypot(rise, Wd / 2);
+      const glassMat = new THREE.MeshStandardMaterial({ color: '#1c2630', roughness: 0.08, metalness: 0.2 });
+      const bars = [];
+      for (const s of [1, -1]) {
+        const pane = new THREE.Mesh(new THREE.BoxGeometry(L - 0.1, 0.03, sl), glassMat);
+        pane.position.set(0, hb + rise / 2, s * Wd / 4);
+        pane.rotation.x = s * slope;
+        sk.add(pane);
+        for (let k = 0; k <= 6; k++) {
+          const g = new THREE.BoxGeometry(0.05, 0.05, sl).rotateX(s * slope);
+          g.translate(-L / 2 + 0.05 + k * (L - 0.1) / 6, hb + rise / 2 + 0.02, s * Wd / 4);
+          bars.push(g);
+        }
+        // Guard rods over the glass.
+        for (let k = 1; k < 6; k++) {
+          // Rods lie along the slope, a hand's breadth above the glass.
+          const n = new THREE.Vector3(0, Math.cos(slope), s * Math.sin(slope));
+          bars.push(new THREE.CylinderGeometry(0.015, 0.015, sl * 0.95).rotateX(Math.PI / 2).rotateX(s * slope)
+            .translate(-L / 2 + k * L / 6 + 0.12, hb + rise / 2 + n.y * 0.09, s * Wd / 4 + n.z * 0.09));
+        }
+      }
+      bars.push(new THREE.BoxGeometry(L, 0.08, 0.08).translate(0, hb + rise, 0));
+      // Gable ends.
+      const tri = new THREE.Shape();
+      tri.moveTo(-Wd / 2, 0); tri.lineTo(Wd / 2, 0); tri.lineTo(0, rise); tri.closePath();
+      for (const x of [-L / 2, L / 2 - 0.06]) {
+        bars.push(new THREE.ExtrudeGeometry(tri, { depth: 0.06, bevelEnabled: false }).rotateY(Math.PI / 2).translate(x + 0.06, hb, 0));
+      }
+      const barMesh = new THREE.Mesh(merge(bars), M.darkWood);
+      sk.add(barMesh);
+      sk.traverse((o) => { if (o.isMesh) o.castShadow = true; });
       sk.position.set(-8.8, deckY('qd', -8.8), 0);
       G.add(sk);
     }
