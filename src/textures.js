@@ -141,6 +141,62 @@ export function hullTextures() {
   return { map: toTexture(c, { aniso: 16 }), metalRough: toTexture(mr, { srgb: false }) };
 }
 
+// ---------- Inside face of the hull planking ----------
+// Same mapping as the outside, so gunports line up: bare wood in the hold, whitewash on the
+// orlop, pale ochre between the gun decks.
+export function interiorHullTexture() {
+  const W = 4096, H = 1024;
+  const c = canvas(W, H), g = c.getContext('2d');
+  const sx = W / (TEX_X1 - TEX_X0), sy = H / (TEX_H1 - TEX_H0);
+  const px = (x) => (x - TEX_X0) * sx;
+  const py = (hs) => (TEX_H1 - hs) * sy;
+  const rand = rng(13);
+  const band = (a, b, col) => { g.fillStyle = col; g.fillRect(0, py(b), W, py(a) - py(b)); };
+  band(TEX_H0, DECK.orlop, '#7a6549');
+  band(DECK.orlop, DECK.lower, '#d8d0bd');
+  band(DECK.lower, TEX_H1, '#c9a965');
+  for (let hs = TEX_H0; hs < TEX_H1; hs += 0.24) {
+    g.fillStyle = 'rgba(0,0,0,0.18)';
+    g.fillRect(0, py(hs), W, 1.2);
+  }
+  for (let i = 0; i < 20000; i++) {
+    g.fillStyle = `rgba(0,0,0,${rand() * 0.06})`;
+    g.fillRect(rand() * W, rand() * H, 1 + rand() * 6, 1 + rand() * 2);
+  }
+  // Clamps and waterways: heavier dark strakes along each deck.
+  for (const d of ['orlop', 'lower', 'middle', 'upper', 'qd']) {
+    g.fillStyle = 'rgba(60,40,20,0.55)';
+    g.fillRect(0, py(DECK[d] + 0.3), W, 0.3 * sy);
+    g.fillRect(0, py(DECK[d] - 0.25), W, 0.25 * sy);
+  }
+  for (const p of portList()) {
+    const t = p.tier;
+    const hs = p.y - sheer(p.x);
+    const x0 = px(p.x - t.w / 2), y0 = py(hs + t.h / 2);
+    g.fillStyle = '#9c7f48';
+    g.fillRect(x0, y0, t.w * sx, t.h * sy);
+    g.fillStyle = '#120b06';
+    g.fillRect(x0 + 0.08 * sx, y0 + 0.08 * sy, (t.w - 0.16) * sx, (t.h - 0.16) * sy);
+  }
+  return toTexture(c, { aniso: 16 });
+}
+
+// Shingle ballast in the hold.
+export function ballastTexture() {
+  const S = 256, c = canvas(S, S), g = c.getContext('2d');
+  const rand = rng(29);
+  g.fillStyle = '#6d6a62';
+  g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 2200; i++) {
+    const v = 70 + rand() * 90;
+    g.fillStyle = `rgb(${v | 0},${(v * 0.97) | 0},${(v * 0.9) | 0})`;
+    g.beginPath();
+    g.ellipse(rand() * S, rand() * S, 1 + rand() * 4, 1 + rand() * 3, rand() * 3, 0, Math.PI * 2);
+    g.fill();
+  }
+  return toTexture(c, { repeat: true });
+}
+
 // ---------- Deck planking (tiles every 8 m) ----------
 export function deckTexture() {
   const S = 1024, c = canvas(S, S), g = c.getContext('2d');

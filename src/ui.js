@@ -2,7 +2,8 @@
 const LABELS = {
   sail: 'Full sail', trafalgar: 'Trafalgar, 1805', action: 'Cleared for action', anchor: 'At anchor',
   quarter: 'Quarter', broadside: 'Broadside', bow: 'Bow', stern: 'Stern', deck: 'Deck',
-  aloft: 'Aloft', galleries: 'Galleries', head: 'Figurehead',
+  aloft: 'Aloft', galleries: 'Galleries', head: 'Figurehead', inside: 'Inside',
+  all: 'All', quarterdeck: 'Quarterdeck', upper: 'Upper deck', middle: 'Middle deck', lower: 'Lower deck', orlop: 'Orlop', hold: 'Hold',
 };
 
 export function windName(dir, str) {
@@ -16,7 +17,7 @@ export function windName(dir, str) {
 }
 
 export class UI {
-  constructor({ onPose, onView, onFire, onWind, wind, poses, views }) {
+  constructor({ onPose, onView, onFire, onWind, wind, poses, views, levels, onLevel, onCut, onXray }) {
     const el = document.getElementById('ui');
     el.innerHTML = `
       <h1>HMS Victory <span>1805</span></h1>
@@ -27,6 +28,9 @@ export class UI {
         <div class="slider"><span>Strength</span><input id="windStr" type="range" min="0" max="100" step="1"></div>
         <div class="windText" id="windText"></div>
         <div class="windHint" id="windHint"></div></div>
+      <div class="group"><div class="label">Inside: show decks down to</div><div class="row" id="levels"></div>
+        <div class="slider"><span>Cut open</span><input id="cut" type="range" min="0" max="100" step="1" value="0"></div>
+        <label class="check"><input id="xray" type="checkbox"> X-ray hull</label></div>
       <div class="group"><div class="label">View</div><div class="row" id="views"></div></div>
       <div class="hint">Drag to orbit · scroll to zoom · right-drag to pan</div>`;
     this.poseButtons = {};
@@ -45,6 +49,18 @@ export class UI {
       b.onclick = () => onView(v);
       ve.appendChild(b);
     }
+    this.levelButtons = {};
+    const le = el.querySelector('#levels');
+    for (const l of levels) {
+      const b = document.createElement('button');
+      b.textContent = LABELS[l] || l;
+      b.onclick = () => { onLevel(l); this.setLevel(l); };
+      le.appendChild(b);
+      this.levelButtons[l] = b;
+    }
+    this.setLevel('all');
+    el.querySelector('#cut').oninput = (e) => onCut(+e.target.value / 100);
+    el.querySelector('#xray').onchange = (e) => onXray(e.target.checked);
     this.fireGroup = el.querySelector('#fireGroup');
     el.querySelector('#fire').onclick = onFire;
     const wd = el.querySelector('#windDir'), ws = el.querySelector('#windStr');
@@ -63,6 +79,10 @@ export class UI {
       wt.textContent = windName(dir, str);
       wh.textContent = '';
     };
+  }
+
+  setLevel(l) {
+    for (const [k, b] of Object.entries(this.levelButtons)) b.classList.toggle('active', k === l);
   }
 
   setPose(p) {

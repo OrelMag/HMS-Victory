@@ -1,6 +1,7 @@
 // Ocean: Gerstner waves on a radially dense grid, with matching CPU sampling for ship motion.
 import * as THREE from 'three';
 import { waterNormalTexture } from './textures.js';
+import { halfBreadth } from './config.js';
 
 const G = 9.81;
 // [dirX, dirZ, wavelength, amplitude, steepness]
@@ -17,6 +18,29 @@ const waveData = WAVES.map(([dx, dz, L, A, Q]) => {
   const k = (2 * Math.PI) / L;
   return { dx: dx / l, dz: dz / l, k, A, Q: Q / (k * A * WAVES.length), c: Math.sqrt(G / k) };
 });
+
+// Water must not show inside the hull when it is cut open: half-breadths of the hull at three
+// heights around the waterline, sampled along its length, so the shaders can discard inside it.
+const HB_N = 64, HB_X0 = -30, HB_X1 = 30, HB_Y = [-1.2, 0, 1.2];
+const hbTable = HB_Y.map((y) => Array.from({ length: HB_N }, (_, i) => halfBreadth(HB_X0 + (i / (HB_N - 1)) * (HB_X1 - HB_X0), y)));
+export const HULL_MASK_GLSL = `
+uniform mat4 uShipInv; uniform float uHB0[${HB_N}], uHB1[${HB_N}], uHB2[${HB_N}];
+bool insideHull(vec3 world) {
+  vec3 lp = (uShipInv * vec4(world, 1.0)).xyz;
+  float fx = (lp.x - (${HB_X0.toFixed(1)})) / ${(HB_X1 - HB_X0).toFixed(1)} * ${(HB_N - 1).toFixed(1)};
+  if (fx <= 0.0 || fx >= ${(HB_N - 1).toFixed(1)}) return false;
+  int i = int(floor(fx)); float f = fract(fx);
+  float a = mix(uHB0[i], uHB0[i + 1], f), b = mix(uHB1[i], uHB1[i + 1], f), c = mix(uHB2[i], uHB2[i + 1], f);
+  float t = clamp((lp.y - (${HB_Y[0].toFixed(1)})) / ${(HB_Y[2] - HB_Y[0]).toFixed(1)}, 0.0, 1.0);
+  float hb = t < 0.5 ? mix(a, b, t * 2.0) : mix(b, c, t * 2.0 - 1.0);
+  return abs(lp.z) < hb - 0.04;
+}`;
+export function hullMaskUniforms() {
+  return {
+    uShipInv: { value: new THREE.Matrix4() },
+    uHB0: { value: hbTable[0] }, uHB1: { value: hbTable[1] }, uHB2: { value: hbTable[2] },
+  };
+}
 
 // GLSL for the surface height (no horizontal drift), for things that float on the sea.
 export const SEA_HEIGHT_GLSL = `
@@ -68,6 +92,7 @@ export class Sea {
       uOffset: { value: this.offset },
       uWaveScale: { value: 1 },
       uWaveRot: { value: new THREE.Vector2(1, 0) },
+      ...hullMaskUniforms(),
     };
     const U = this.uniforms;
     const waveGLSL = waveData.map((w) =>
@@ -102,7 +127,10 @@ vec3 objectTangent = vec3(tangent.xyz);
 vSeaWorld = transformed;`);
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>
-varying float vCrest; varying vec3 vSeaWorld;`)
+varying float vCrest; varying vec3 vSeaWorld;
+${HULL_MASK_GLSL}`)
+        .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+if (insideHull(vSeaWorld)) discard;`)
         .replace('#include <color_fragment>', `#include <color_fragment>
 float crest = smoothstep(0.95, 1.6, vCrest);
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.2, 0.24), smoothstep(-0.8, 1.4, vCrest) * 0.22);

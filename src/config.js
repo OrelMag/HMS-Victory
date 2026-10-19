@@ -128,6 +128,17 @@ export function portList() {
   return ports;
 }
 
+// Hatchways through the decks: centre x, fore-and-aft length, athwartships width.
+export const HATCHES = [
+  { name: 'after hatch', x: -8.4, w: 2.2, d: 2.0 },
+  { name: 'main hatch', x: 1.8, w: 2.6, d: 2.4 },
+  { name: 'main ladderway', x: 5.6, w: 2.4, d: 2.4, ladder: true },
+  { name: 'fore ladderway', x: 10.2, w: 3.0, d: 2.6, ladder: true },
+  { name: 'fore hatch', x: 13.6, w: 1.8, d: 1.8 },
+  { name: 'forward hatch', x: 18.2, w: 2.2, d: 2.0 },
+  { name: 'after ladderway', x: -12.2, w: 2.0, d: 1.6, ladder: true },
+];
+
 // Paint bands (heights relative to the sheer line).
 export const BANDS = TIERS.slice(0, 3).map((t) => {
   const c = DECK[t.deck] + t.cy;

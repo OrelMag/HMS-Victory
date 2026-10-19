@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { puffTexture, rng } from './textures.js';
 import { halfBreadth, xStern, xBow } from './config.js';
-import { SEA_HEIGHT_GLSL } from './sea.js';
+import { SEA_HEIGHT_GLSL, HULL_MASK_GLSL } from './sea.js';
 
 const VS = `
 attribute vec4 iData; // xyz position, w size
@@ -209,17 +209,19 @@ export class Wake {
     geo.setIndex(idx);
     const mat = new THREE.ShaderMaterial({
       uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, this.uniforms]),
-      vertexShader: `attribute float alpha; varying float vA; varying vec2 vUv;
+      vertexShader: `attribute float alpha; varying float vA; varying vec2 vUv; varying vec3 vWorldP;
         ${SEA_HEIGHT_GLSL}
         #include <fog_pars_vertex>
         void main(){ vA = alpha; vUv = uv; vec3 p = position; p.y = seaHeight(p.xz) + 0.07;
+        vWorldP = (modelMatrix * vec4(p, 1.0)).xyz;
         vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
         gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
         }`,
-      fragmentShader: `uniform sampler2D uFoam; uniform float uScroll, uStrength; varying float vA; varying vec2 vUv;
+      fragmentShader: `uniform sampler2D uFoam; uniform float uScroll, uStrength; varying float vA; varying vec2 vUv; varying vec3 vWorldP;
+        ${HULL_MASK_GLSL}
         #include <fog_pars_fragment>
-        void main(){ float f = texture2D(uFoam, vUv + vec2(uScroll, 0.0)).a;
+        void main(){ if (insideHull(vWorldP)) discard; float f = texture2D(uFoam, vUv + vec2(uScroll, 0.0)).a;
         float f2 = texture2D(uFoam, vUv * 0.6 + vec2(uScroll * 0.7, 0.31)).a;
         gl_FragColor = vec4(vec3(0.95), (f * 0.7 + f2 * 0.6) * vA * uStrength);
         #include <fog_fragment>
@@ -228,7 +230,7 @@ export class Wake {
       polygonOffset: true, polygonOffsetFactor: -2,
     });
     mat.uniforms.uFoam.value = tex;
-    for (const k of ['uTime', 'uOffset', 'uWaveScale', 'uWaveRot']) mat.uniforms[k] = seaUniforms[k];
+    for (const k of ['uTime', 'uOffset', 'uWaveScale', 'uWaveRot', 'uShipInv', 'uHB0', 'uHB1', 'uHB2']) mat.uniforms[k] = seaUniforms[k];
     this.uniforms = mat.uniforms;
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.renderOrder = 2;

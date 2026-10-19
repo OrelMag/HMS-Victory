@@ -5,7 +5,7 @@ import {
   bSec, wShape, wEnd, halfBreadth, texU, texV, smoothstep, lerp,
 } from './config.js';
 import { gridGeometry, mirroredGrid, beamBetween, cylBetween, balustrade, merge } from './geom.js';
-import { hullTextures, sternTexture, STERN_H0, STERN_H1, COLORS, windowStripTexture } from './textures.js';
+import { hullTextures, sternTexture, STERN_H0, STERN_H1, COLORS, windowStripTexture, interiorHullTexture } from './textures.js';
 import { mats } from './materials.js';
 
 const NU = 220, NV = 120;
@@ -52,6 +52,11 @@ export function buildHull() {
   outerMesh.castShadow = outerMesh.receiveShadow = true;
   outerMesh.name = 'planking';
   group.add(outerMesh);
+  // The inside of the planking: the same surface seen from within.
+  const innerHull = new THREE.Mesh(outer, new THREE.MeshStandardMaterial({ map: interiorHullTexture(), roughness: 0.85, side: THREE.BackSide }));
+  innerHull.name = 'innerPlanking';
+  innerHull.receiveShadow = true;
+  group.add(innerHull);
 
   // ---- Stern face (transom, counter and windows) ----
   const rows = [];
@@ -70,7 +75,11 @@ export function buildHull() {
   }, (k, j) => [k / (NK - 1), (rows[j][1] - STERN_H0) / (STERN_H1 - STERN_H0)]);
   const sternMesh = new THREE.Mesh(stern, sternMat);
   sternMesh.castShadow = sternMesh.receiveShadow = true;
+  sternMesh.name = 'stern';
   group.add(sternMesh);
+  const sternInside = new THREE.Mesh(stern, new THREE.MeshStandardMaterial({ map: sternMat.map, roughness: 0.7, side: THREE.BackSide, color: '#d8cdb4' }));
+  sternInside.name = 'innerPlanking';
+  group.add(sternInside);
 
   // ---- Inner bulwarks and rail cap ----
   const topRow = [];
@@ -85,7 +94,8 @@ export function buildHull() {
     const y = lerp(bulwarkBottom(x) - 0.05, yt, j / (NB - 1));
     return [x, y, Math.max(0.05, halfBreadth(x, y) - BULWARK)];
   }, (i, j) => [topRow[i][0] / 4, j / (NB - 1)], true);
-  const innerMesh = new THREE.Mesh(inner, M.inside);
+  const innerMesh = new THREE.Mesh(inner, M.inside.clone());
+  innerMesh.name = 'bulwark';
   innerMesh.receiveShadow = true;
   group.add(innerMesh);
 
@@ -121,13 +131,13 @@ export function buildHull() {
   };
   const full = (hw) => [-hw, hw];
   const gw = 2.5;
-  deck('upper', xStern(DECK.upper) + 0.6, xBow(DECK.upper) - 0.6, full);
   deck('qd', xStern(DECK.qd) + 0.4, QD_FWD, full);
   deck('qd', FC_AFT, xBow(DECK.qd) - 0.4, full);
   deck('qd', QD_FWD, FC_AFT, (hw) => [hw - gw, hw], 0.0);
   deck('qd', QD_FWD, FC_AFT, (hw) => [-hw, -hw + gw], 0.0);
   deck('poop', xStern(DECK.poop) + 0.4, POOP_FWD, full);
   const deckMesh = new THREE.Mesh(merge(deckGeoms), M.deck);
+  M.deck.side = THREE.DoubleSide;
   deckMesh.receiveShadow = true;
   deckMesh.castShadow = true;
   deckMesh.name = 'weatherDecks';

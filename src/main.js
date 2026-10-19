@@ -5,6 +5,7 @@ import { Sea } from './sea.js';
 import { Ship, POSES } from './ship.js';
 import { UI } from './ui.js';
 import { findClashes } from './clash.js';
+import { Cutaway, LEVELS } from './cutaway.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -62,6 +63,8 @@ scene.add(sea.mesh);
 const ship = new Ship(scene, sea);
 scene.add(ship.root);
 
+const cut = new Cutaway(ship, sunLight);
+
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
@@ -79,6 +82,7 @@ export const VIEWS = {
   aloft: [[30, 76, 52], [0, 30, 0]],
   galleries: [[-44, 9, 24], [-26, 7, 0]],
   head: [[44, 9, 16], [30, 8, 0]],
+  inside: [[-26, 34, 46], [0, 2, 0]],
 };
 let follow = true;
 function setView(name, instant = false) {
@@ -104,6 +108,10 @@ const ui = params.get('ui') === '0' ? null : new UI({
   onFire: () => ship.fireBroadside(),
   onWind: (dir, str) => ship.setWind(dir, str),
   wind: { dir: +(params.get('wind') ?? -135), str: +(params.get('windStr') ?? 0.6) },
+  levels: Object.keys(LEVELS),
+  onLevel: (l) => cut.setLevel(l),
+  onCut: (f) => cut.setCut(f),
+  onXray: (on) => cut.setXray(on),
   poses: ship.poseNames(),
   views: Object.keys(VIEWS),
 });
@@ -122,6 +130,9 @@ if (params.has('cam')) {
   controls.target.set(c[3], c[4], c[5]);
 }
 ui?.setPose(ship.pose);
+if (params.has('level')) { cut.setLevel(params.get('level')); ui?.setLevel(params.get('level')); }
+if (params.has('cut')) cut.setCut(+params.get('cut'));
+if (params.has('xray')) cut.setXray(true);
 if (params.has('fire')) setTimeout(() => ship.fireBroadside(), 300);
 
 window.addEventListener('resize', () => {
@@ -139,6 +150,7 @@ function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
   t = fixedT ?? t + dt;
   ship.update(t, fixedT != null ? 1 / 30 : dt);
+  cut.update();
   sea.update(t, ship.distance);
 
   if (camTween) {
@@ -155,4 +167,4 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__victory = { ship, camera, controls, scene, setView, clashes: () => findClashes(ship) };
+window.__victory = { ship, camera, controls, scene, setView, cut, clashes: () => findClashes(ship) };

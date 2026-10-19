@@ -1,6 +1,6 @@
 // Deck fittings: boats, anchors, wheel, binnacle, capstan, belfry, lanterns, gratings, staffs.
 import * as THREE from 'three';
-import { deckY, railTop, halfBreadth, xStern, QD_FWD, FC_AFT, POOP_FWD, lerp } from './config.js';
+import { deckY, railTop, halfBreadth, xStern, QD_FWD, FC_AFT, POOP_FWD, lerp, HATCHES } from './config.js';
 import { gridGeometry, merge, beamBetween, cylBetween } from './geom.js';
 import { mats } from './materials.js';
 
@@ -220,7 +220,7 @@ export class Fittings {
     // Hatch gratings on the upper deck in the waist (seen from above).
     const gt = gratingTexture();
     const gm = new THREE.MeshStandardMaterial({ map: gt, roughness: 0.85 });
-    for (const [x, w, d] of [[5.6, 2.4, 2.4], [10.2, 3.0, 2.6], [13.6, 1.8, 1.8]]) {
+    for (const { x, w, d } of HATCHES.filter((h) => h.x > QD_FWD + 1 && h.x < FC_AFT - 1 && !h.ladder)) {
       const coam = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, 0.3, d + 0.3), M.darkWood);
       coam.position.set(x, deckY('upper', x) + 0.15, 0);
       const gr = new THREE.Mesh(new THREE.PlaneGeometry(w, d), gm);

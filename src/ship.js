@@ -1,6 +1,7 @@
 // The ship: assembles all parts, rides the waves and blends between poses.
 import * as THREE from 'three';
 import { buildHull } from './hull.js';
+import { buildInterior } from './interior.js';
 import { TRIM } from './config.js';
 import { Rig } from './masts.js';
 import { buildSails, xform } from './sails.js';
@@ -113,7 +114,14 @@ export class Ship {
     this.root = new THREE.Group();   // follows the waves
     this.body = new THREE.Group();   // heel applied here
     this.root.add(this.body);
-    this.body.add(buildHull());
+    const hull = buildHull();
+    this.body.add(hull);
+    this.body.add(buildInterior());
+    // The shell (made see-through by the X-ray view).
+    hull.traverse((o) => {
+      if (o.isMesh && ['planking', 'innerPlanking', 'stern', 'bulwark'].includes(o.name)) o.userData.shell = true;
+    });
+    hull.getObjectByName('quarterGalleries')?.traverse((o) => { if (o.isMesh) o.userData.shell = true; });
 
     this.rig = new Rig();
     this.body.add(this.rig.group);
@@ -249,6 +257,7 @@ export class Ship {
       });
     }
     this.root.updateMatrixWorld(true);
+    this.sea.uniforms.uShipInv.value.copy(this.body.matrixWorld).invert();
 
     // Sails animate every frame (they ripple, and shiver when the wind is too far forward).
     for (const s of this.sails.square) s.update(S[`set.${s.kind}`], W.belly, t, W.luff);
