@@ -233,15 +233,15 @@ export function buildHull() {
     group.add(new THREE.Mesh(stem, M.black));
 
     const rs = new THREE.Shape();
-    const top = 5.2;
+    const top = WING + 0.6;
     rs.moveTo(xStern(KEEL), KEEL);
-    rs.lineTo(xStern(top), top);
-    rs.lineTo(xStern(top) - 1.0, top);
-    rs.lineTo(xStern(WING) - 1.35, WING);
-    rs.lineTo(xStern(KEEL) - 1.9, KEEL + 0.3);
+    rs.lineTo(xStern(top) + 0.3, top);
+    rs.lineTo(xStern(top) - 0.6, top);
+    rs.lineTo(xStern(WING) - 1.0, WING - 0.6);
+    rs.lineTo(xStern(KEEL) - 1.7, KEEL + 0.3);
     rs.closePath();
-    const rg = new THREE.ExtrudeGeometry(rs, { depth: 0.5, bevelEnabled: false });
-    rg.translate(0, 0, -0.25);
+    const rg = new THREE.ExtrudeGeometry(rs, { depth: 0.36, bevelEnabled: false });
+    rg.translate(0, 0, -0.18);
     const rudder = new THREE.Mesh(rg, M.black);
     rudder.castShadow = true;
     group.add(rudder);
@@ -260,7 +260,7 @@ function buildHead() {
   const M = mats();
   const g = new THREE.Group();
   g.name = 'head';
-  const figX = 33.0, figY = deckY('upper', 30) + 1.4;
+  const figX = 33.0, figY = deckY('upper', 30) + 2.3;
 
   // Knee of the head (side profile extruded).
   const s = new THREE.Shape();
@@ -291,62 +291,43 @@ function buildHead() {
   tbg.translate(0, 0, -0.31);
   g.add(new THREE.Mesh(tbg, M.ochre));
 
-  // Head rails sweeping from the bows to the figurehead.
-  const railGeo = [];
+  // Head rails: three parallel rails per side sweeping from the bows down to the figurehead,
+  // tied together by upright head timbers.
+  const railGeo = [], timberGeo = [];
+  const yU = deckY('upper', 27);
   for (const side of [1, -1]) {
+    const rails = [];
     for (let r = 0; r < 3; r++) {
-      const xb = 26.0 - r * 0.25;
-      const yb = deckY('upper', xb) + 0.8 + r * 0.75;
-      const zb = halfBreadth(xb, yb) + 0.05;
-      const curve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(xb, yb, side * zb),
-        new THREE.Vector3(29.4, yb - 0.6 - r * 0.15, side * (1.6 - r * 0.15)),
-        new THREE.Vector3(31.6, figY - 1.2 - r * 0.25 + r * 0.6, side * 0.75),
-        new THREE.Vector3(figX - 0.45, figY - 0.6 + r * 0.35, side * 0.22),
-      ]);
-      railGeo.push(new THREE.TubeGeometry(curve, 24, 0.075, 6, false));
+      const dy = -r * 0.55;
+      const pts = [
+        new THREE.Vector3(26.0, yU + 2.2 + dy, side * (halfBreadth(26.0, yU + 2.2 + dy) + 0.05)),
+        new THREE.Vector3(28.4, yU + 1.75 + dy * 0.9, side * 2.5),
+        new THREE.Vector3(30.6, yU + 1.55 + dy * 0.75, side * 1.25),
+        new THREE.Vector3(figX - 0.55, figY - 0.35 + dy * 0.55, side * 0.32),
+      ];
+      const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+      rails.push(curve);
+      railGeo.push(new THREE.TubeGeometry(curve, 32, r === 0 ? 0.1 : 0.075, 6, false));
+    }
+    for (const t of [0.25, 0.45, 0.65]) {
+      const a = rails[0].getPoint(t), b = rails[2].getPoint(t);
+      timberGeo.push(cylBetween(a, b.clone().add(new THREE.Vector3(0, -0.5, 0)), 0.07, 0.07, 6));
     }
   }
   const rails = new THREE.Mesh(merge(railGeo), M.ochre);
   rails.castShadow = true;
   g.add(rails);
+  g.add(new THREE.Mesh(merge(timberGeo), M.black));
 
   // Head gratings (platform between the rails).
   const grat = gridGeometry(6, 6, (i, j) => {
     const x = lerp(28.9, 31.6, i / 5);
-    const w = lerp(2.2, 0.6, i / 5);
-    return [x, figY - 1.9 + (i / 5) * 0.4, lerp(-w, w, j / 5)];
+    const w = lerp(2.2, 0.7, i / 5);
+    return [x, yU + 0.5 + (i / 5) * 0.5, lerp(-w, w, j / 5)];
   }, null, true);
   g.add(new THREE.Mesh(grat, M.darkWood));
 
-  // Figurehead: the royal arms supported by two cherubs, crowned.
-  const fig = new THREE.Group();
-  fig.position.set(figX, figY + 0.5, 0);
-  fig.rotation.z = -0.35;
-  const shield = new THREE.Mesh(new THREE.SphereGeometry(0.7, 20, 14), M.gold);
-  shield.scale.set(0.35, 1.0, 0.75);
-  fig.add(shield);
-  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.32, 0.4, 12), M.gold);
-  crown.position.set(0.05, 0.95, 0);
-  fig.add(crown);
-  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), M.gold);
-  orb.position.set(0.05, 1.28, 0);
-  fig.add(orb);
-  for (const side of [1, -1]) {
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.45, 4, 10), M.gold);
-    body.position.set(-0.1, -0.1, side * 0.62);
-    body.rotation.x = side * 0.3;
-    fig.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), M.gold);
-    head.position.set(-0.05, 0.42, side * 0.7);
-    fig.add(head);
-    const wing = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), M.gold);
-    wing.scale.set(0.15, 0.7, 0.45);
-    wing.position.set(-0.35, 0.15, side * 0.85);
-    fig.add(wing);
-  }
-  fig.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-  g.add(fig);
+  g.add(buildFigurehead(figX, figY));
 
   // Catheads.
   for (const side of [1, -1]) {
@@ -380,6 +361,123 @@ function buildHead() {
     }
   }
   return g;
+}
+
+// Victory's figurehead: the royal arms, crowned, supported by two cherubs.
+function shieldTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 300;
+  const g = c.getContext('2d');
+  const q = [['#b8202a', '#e2b33c'], ['#e2b33c', '#b8202a'], ['#1f3c8c', '#e2b33c'], ['#b8202a', '#e2b33c']];
+  const cell = [[0, 0], [128, 0], [0, 150], [128, 150]];
+  cell.forEach(([x, y], i) => {
+    g.fillStyle = q[i][0];
+    g.fillRect(x, y, 128, 150);
+    g.fillStyle = q[i][1];
+    // Stylised charges: lions / harp / lion rampant.
+    for (let k = 0; k < (i === 0 ? 3 : 1); k++) {
+      const cy = y + (i === 0 ? 30 + k * 42 : 75);
+      g.beginPath();
+      g.ellipse(x + 64, cy, i === 0 ? 34 : 30, i === 0 ? 12 : 34, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+  });
+  g.strokeStyle = '#d4a640';
+  g.lineWidth = 14;
+  g.strokeRect(0, 0, 256, 300);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function buildFigurehead(figX, figY) {
+  const M = mats();
+  const fig = new THREE.Group();
+  fig.name = 'figurehead';
+  fig.position.set(figX - 0.2, figY, 0);
+  fig.rotation.z = -0.28; // leans forward with the knee
+  const S = 1.45;
+
+  // Shield (quartered arms) facing forward, framed in gilt.
+  const sh = new THREE.Shape();
+  sh.moveTo(-0.6, 0.75);
+  sh.lineTo(0.6, 0.75);
+  sh.lineTo(0.6, -0.1);
+  sh.quadraticCurveTo(0.6, -0.7, 0, -0.95);
+  sh.quadraticCurveTo(-0.6, -0.7, -0.6, -0.1);
+  sh.closePath();
+  const sg = new THREE.ExtrudeGeometry(sh, { depth: 0.18, bevelEnabled: true, bevelSize: 0.06, bevelThickness: 0.06, bevelSegments: 2 });
+  // Map the front face uv to the shield texture.
+  const uv = sg.attributes.uv, pos = sg.attributes.position;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (pos.getX(i) + 0.66) / 1.32, (pos.getY(i) + 1.0) / 1.8);
+  sg.rotateY(Math.PI / 2);
+  const shield = new THREE.Mesh(sg, [new THREE.MeshStandardMaterial({ map: shieldTexture(), roughness: 0.45, metalness: 0.2 }), M.gold]);
+  shield.scale.setScalar(S);
+  shield.position.set(0.25, 0.9, 0);
+  fig.add(shield);
+
+  // Crown above the shield.
+  const crown = new THREE.Group();
+  crown.add(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.36, 0.3, 16), M.gold));
+  for (let k = 0; k < 2; k++) {
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.05, 6, 16, Math.PI), M.gold);
+    arch.rotation.y = k * Math.PI / 2;
+    arch.position.y = 0.15;
+    crown.add(arch);
+  }
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), M.gold);
+  orb.position.y = 0.6;
+  crown.add(orb);
+  const cross = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.16), M.gold);
+  cross.position.y = 0.78;
+  crown.add(cross);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.33, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#7a1b20', roughness: 0.6 }));
+  cap.position.y = 0.12;
+  crown.add(cap);
+  crown.scale.setScalar(S);
+  crown.position.set(0.2, 2.15, 0);
+  fig.add(crown);
+
+  // Two cherubs supporting the arms, one each side.
+  const flesh = new THREE.MeshStandardMaterial({ color: '#e8c7a4', roughness: 0.55 });
+  for (const side of [1, -1]) {
+    const c = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 0.42, 4, 12), flesh);
+    body.rotation.x = side * 0.25;
+    c.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), flesh);
+    head.position.set(0.05, 0.55, side * 0.06);
+    c.add(head);
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2.2), M.gold);
+    hair.position.copy(head.position).add(new THREE.Vector3(-0.02, 0.03, 0));
+    c.add(hair);
+    for (const w of [0, 1]) {
+      const wing = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), M.gold);
+      wing.scale.set(0.12, 0.75, 0.42);
+      wing.position.set(-0.28, 0.25 + w * 0.12, side * (0.12 + w * 0.12));
+      wing.rotation.x = side * (0.5 + w * 0.3);
+      c.add(wing);
+    }
+    // Arm reaching to the shield.
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.4, 4, 8), flesh);
+    arm.position.set(0.12, 0.25, -side * 0.24);
+    arm.rotation.x = -side * 1.1;
+    c.add(arm);
+    const drape = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.07, 6, 14, Math.PI * 1.3), new THREE.MeshStandardMaterial({ color: '#2a4a9a', roughness: 0.6 }));
+    drape.rotation.set(Math.PI / 2, 0, 0.4);
+    drape.position.y = -0.08;
+    c.add(drape);
+    c.scale.setScalar(S);
+    c.position.set(0.05, 1.0, side * 1.25);
+    fig.add(c);
+  }
+  // Gilt scroll at the foot of the figure, on the knee.
+  const scroll = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.12, 8, 18, Math.PI * 1.5), M.gold);
+  scroll.rotation.set(0, Math.PI / 2, 0);
+  scroll.position.set(0.0, -0.2, 0);
+  fig.add(scroll);
+  fig.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return fig;
 }
 
 function buildQuarterGalleries() {

@@ -4,6 +4,7 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { Sea } from './sea.js';
 import { Ship } from './ship.js';
 import { UI } from './ui.js';
+import { findClashes } from './clash.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -24,9 +25,9 @@ scene.userData.camera = camera;
 const sky = new Sky();
 sky.scale.setScalar(8000);
 const su = sky.material.uniforms;
-su.turbidity.value = 3.5;
-su.rayleigh.value = 1.4;
-su.mieCoefficient.value = 0.004;
+su.turbidity.value = 2.2;
+su.rayleigh.value = 2.2;
+su.mieCoefficient.value = 0.003;
 su.mieDirectionalG.value = 0.82;
 const sun = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 28), THREE.MathUtils.degToRad(215));
 su.sunPosition.value.copy(sun);
@@ -70,14 +71,14 @@ controls.maxDistance = 600;
 
 // Camera presets: [position, target] in ship coordinates.
 export const VIEWS = {
-  quarter: [[-62, 26, 78], [2, 16, 0]],
-  broadside: [[0, 14, 112], [2, 18, 0]],
-  bow: [[78, 16, 38], [10, 14, 0]],
-  stern: [[-70, 16, -28], [-20, 10, 0]],
-  deck: [[-20, 18, 9], [8, 8, 0]],
-  aloft: [[34, 70, 46], [0, 28, 0]],
-  galleries: [[-42, 9, 22], [-26, 7, 0]],
-  head: [[42, 9, 14], [30, 7, 0]],
+  quarter: [[78, 24, 96], [0, 22, 0]],
+  broadside: [[4, 18, 132], [2, 24, 0]],
+  bow: [[92, 14, 34], [12, 20, 0]],
+  stern: [[-84, 20, -46], [-14, 16, 0]],
+  deck: [[-21, 15.5, 7], [10, 9, 0]],
+  aloft: [[30, 76, 52], [0, 30, 0]],
+  galleries: [[-44, 9, 24], [-26, 7, 0]],
+  head: [[44, 9, 16], [30, 8, 0]],
 };
 let follow = true;
 function setView(name, instant = false) {
@@ -141,4 +142,4 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__victory = { ship, camera, controls, scene, setView };
+window.__victory = { ship, camera, controls, scene, setView, clashes: () => findClashes(ship) };

@@ -59,8 +59,8 @@ export class Sea {
 
     const normalMap = waterNormalTexture();
     const mat = new THREE.MeshStandardMaterial({
-      color: '#0e3946', roughness: 0.07, metalness: 0.0, envMap, envMapIntensity: 1.0,
-      normalMap, normalScale: new THREE.Vector2(0.14, 0.14),
+      color: '#062a3a', roughness: 0.14, metalness: 0.0, envMap, envMapIntensity: 0.4,
+      normalMap, normalScale: new THREE.Vector2(0.09, 0.09),
     });
     this.uniforms = {
       uTime: { value: 0 },
@@ -102,8 +102,8 @@ vSeaWorld = transformed;`);
 varying float vCrest; varying vec3 vSeaWorld;`)
         .replace('#include <color_fragment>', `#include <color_fragment>
 float crest = smoothstep(0.55, 1.15, vCrest);
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.08, 0.32, 0.36), smoothstep(-0.4, 0.9, vCrest) * 0.5);
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.85, 0.9, 0.9), crest * 0.35);`);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.22, 0.26), smoothstep(-0.4, 0.9, vCrest) * 0.45);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.75, 0.8, 0.8), crest * 0.2);`);
     };
     // Normal map uv needs the scrolling offset too.
     this.normalMap = normalMap;

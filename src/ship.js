@@ -16,7 +16,7 @@ const allSails = (v) => Object.fromEntries(SAIL_KEYS.map((k) => [k, v]));
 
 export const POSES = {
   sail: {
-    set: allSails(1),
+    set: { ...allSails(1), sprit: 0 },
     hoist: { topsail: 1, topgallant: 1, royal: 1 },
     brace: -0.38, boomSwing: 0.3, heel: 0.07, speed: 5.0, wind: 1, ports: 0, runOut: 0,
     anchor: 0, waveScale: 1, gaffEnsign: 1, jack: 0,

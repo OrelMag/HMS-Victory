@@ -37,6 +37,8 @@ export class SquareSail {
     this.yard = yard;
     this.foot = foot;
     this.fullness = fullness;
+    // Upper sails are cut with a curved foot to clear the stays.
+    this.roach = foot.yard ? 0.13 : 0.03;
     this.NU = 15; this.NV = 13;
     this.geo = sailGeometry(this.NU, this.NV);
     this.mesh = new THREE.Mesh(this.geo, M.canvas);
@@ -73,8 +75,8 @@ export class SquareSail {
       F1 = xform(new THREE.Vector3(0, ly.r, lw), ly.group, y.group);
     } else {
       const d = this.foot.drop();
-      F0 = new THREE.Vector3(0.6, -d, -hw * 0.94);
-      F1 = new THREE.Vector3(0.6, -d, hw * 0.94);
+      F0 = new THREE.Vector3(0.6, -d, -hw * 0.74);
+      F1 = new THREE.Vector3(0.6, -d, hw * 0.74);
     }
     const height = (F0.y + F1.y) / 2 * -1;
     const belly = this.fullness * wind * set;
@@ -86,7 +88,7 @@ export class SquareSail {
         const u = i / (NU - 1);
         const k = j * NU + i;
         const hx = H0.x + (H1.x - H0.x) * u, hy = H0.y + (H1.y - H0.y) * u, hz = H0.z + (H1.z - H0.z) * u;
-        const roach = Math.sin(Math.PI * u) * 0.06 * height;
+        const roach = Math.sin(Math.PI * u) * this.roach * height;
         const fx = F0.x + (F1.x - F0.x) * u, fy = F0.y + (F1.y - F0.y) * u + roach, fz = F0.z + (F1.z - F0.z) * u;
         const vv = v * set;
         let x = hx + (fx - hx) * vv;
@@ -157,6 +159,7 @@ export class StaySail {
 // Spanker: quadrilateral between gaff and boom, brailed in toward the mast when furled.
 export class Spanker {
   constructor(mast, gaff, boom) {
+    this.name = 'spanker';
     this.mast = mast; this.gaff = gaff; this.boom = boom;
     this.NU = 12; this.NV = 12;
     this.geo = sailGeometry(this.NU, this.NV);
@@ -238,7 +241,7 @@ export function buildSails(rig, body) {
   // Spritsail under the bowsprit.
   {
     const y = rig.spritYard;
-    const s = new SquareSail('spritsail', y, { drop: () => 4.2 }, 1.0);
+    const s = new SquareSail('spritsail', y, { drop: () => 3.0 }, 0.8);
     s.kind = 'sprit';
     sails.square.push(s);
   }
@@ -254,17 +257,17 @@ export function buildSails(rig, body) {
     sails.stay.push(s);
   };
   const along = (a, b, t) => a.clone().lerp(b, t);
-  const foreTM = P(fore, 'topmastHead'), foreTG = P(fore, 'tgHead');
+  const foreTM = P(fore, 'topmastShroudHead'), foreTG = P(fore, 'tgHead');
   stay('foreTopmastStaysail', along(bs.cap, foreTM, 0.04), along(bs.cap, foreTM, 0.82),
-    new THREE.Vector3(fore.x + 3.0, deckY('qd', 24) + 5.5, 0.6), 1.0);
+    new THREE.Vector3(fore.x + 4.5, deckY('qd', 24) + 5.0, 1.8), 1.0);
   stay('jib', along(bs.jibEnd, foreTM, 0.05), along(bs.jibEnd, foreTM, 0.78),
-    new THREE.Vector3(fore.x + 6.5, deckY('qd', 24) + 9.5, 0.8), 1.0);
+    new THREE.Vector3(fore.x + 7.0, deckY('qd', 24) + 8.0, 4.0), 1.0);
   stay('flyingJib', along(bs.flyEnd, foreTG, 0.04), along(bs.flyEnd, foreTG, 0.62),
-    new THREE.Vector3(fore.x + 12, deckY('qd', 24) + 16, 0.8), 0.9);
-  const mainTM = P(main, 'topmastHead'), foreTop = P(fore, 'topBack');
+    new THREE.Vector3(fore.x + 10.5, deckY('qd', 24) + 13, 6.0), 0.9);
+  const mainTM = P(main, 'topmastShroudHead'), foreTop = P(fore, 'lowerHead');
   stay('mainTopmastStaysail', along(foreTop, mainTM, 0.14), along(foreTop, mainTM, 0.85),
     new THREE.Vector3(main.x + 4.5, main.h.topY + 1.5, 0.6), 0.9);
-  const mizTM = P(miz, 'topmastHead'), mainTop = P(main, 'topBack');
+  const mizTM = P(miz, 'topmastShroudHead'), mainTop = P(main, 'topBack');
   stay('mizzenStaysail', along(mainTop, mizTM, 0.14), along(mainTop, mizTM, 0.8),
     new THREE.Vector3(miz.x + 3, miz.h.topY + 0.5, 0.6), 0.8);
 

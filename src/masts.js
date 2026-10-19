@@ -11,9 +11,9 @@ const MAIN = {
   tgHeel: 46.4, tgHead: 58.4, poleHead: 63.4, rTg: [0.19, 0.08],
   yards: [
     { name: 'course', L: 31.5, ySet: 29.2, yLow: 29.2, r: 0.33, head: 'lowerHead' },
-    { name: 'topsail', L: 23.2, ySet: 45.5, yLow: 35.0, r: 0.25, head: 'topmastHead' },
-    { name: 'topgallant', L: 14.6, ySet: 55.6, yLow: 50.9, r: 0.16, head: 'tgHead' },
-    { name: 'royal', L: 9.6, ySet: 61.4, yLow: 58.9, r: 0.11, head: 'poleHead' },
+    { name: 'topsail', L: 23.2, ySet: 46.2, yLow: 35.0, r: 0.25, head: 'topmastHead' },
+    { name: 'topgallant', L: 14.6, ySet: 57.5, yLow: 50.9, r: 0.16, head: 'tgHead' },
+    { name: 'royal', L: 9.6, ySet: 62.5, yLow: 58.9, r: 0.11, head: 'poleHead' },
   ],
 };
 
@@ -99,6 +99,7 @@ export class Rig {
     mast.local = {
       lowerHead: V(0, m.lowerHead - 0.2),
       shroudHead: V(0, m.topY - 0.4),
+      stayLower: V(0, m.topY + 0.4),
       topEdge: (side) => V(-tl * 0.1, m.topY + 0.15, side * tw * 0.98),
       topBack: V(-tl * 0.4, m.topY + 0.2),
       topFront: V(tl * 0.5, m.topY + 0.2),
@@ -178,7 +179,7 @@ export class Rig {
     };
     // Spritsail yard under the bowsprit.
     const g = new THREE.Group();
-    g.position.copy(P(14.5, -0.75));
+    g.position.copy(P(18.5, -0.75));
     const L = 20.5, r = 0.2;
     const prof = [];
     for (let i = 0; i <= 10; i++) prof.push(new THREE.Vector2(r * (1 - 0.5 * (i / 10) ** 1.6), (i / 10) * L / 2));
@@ -227,7 +228,7 @@ export class Rig {
       for (const y of Object.values(m.yards)) {
         const hoist = y.name === 'course' ? 1 : state.hoist[y.name] ?? 1;
         y.group.position.y = y.yLow + (y.ySet - y.yLow) * hoist;
-        y.group.rotation.y = state.brace * (y.name === 'course' ? 0.9 : 1) * (m.name === 'mizzen' ? 1.15 : 1);
+        y.group.rotation.y = state.brace * (y.name === 'course' ? 0.55 : 1) * (m.name === 'mizzen' ? 1.15 : 1);
       }
     }
     this.boom.group.rotation.y = state.boomSwing;

@@ -36,10 +36,16 @@ export function buildBoat(L, B, D, color = '#2a2622') {
   }
   const tm = new THREE.Mesh(merge(inner), M.darkWood);
   g.add(tm);
-  const strake = boatGeometry(L * 1.002, B * 1.01, D * 0.12);
-  strake.translate(0, 0.02, 0);
-  const sm = new THREE.Mesh(strake, new THREE.MeshStandardMaterial({ color: '#d8cfb6', roughness: 0.6, side: THREE.DoubleSide }));
-  g.add(sm);
+  const rim = [];
+  for (let k = 0; k <= 40; k++) {
+    const a = (k / 40) * Math.PI * 2;
+    const xn = Math.cos(a);
+    const w = (B / 2) * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(xn), xn > 0 ? 1.7 : 3.0)), 0.55);
+    rim.push(new THREE.Vector3(xn * L / 2, 0.25 * xn * xn * D + 0.02, Math.sign(Math.sin(a)) * w));
+  }
+  const gm = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rim, true), 80, 0.06, 5, true),
+    new THREE.MeshStandardMaterial({ color: '#d8cfb6', roughness: 0.6 }));
+  g.add(gm);
   return g;
 }
 
@@ -130,7 +136,7 @@ export class Fittings {
     this.group.name = 'fittings';
     parent.add(this.group);
     const G = this.group;
-    const V = (x, y, z = 0) => new THREE.Vector3(x, y, z);
+    const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 
     // Boats on the skid beams in the waist.
     const skidY = (x) => deckY('qd', x) + 0.35;
@@ -302,18 +308,18 @@ export class Fittings {
       const z = halfBreadth(x, y) - 0.4;
       const cat = V(x + 1.35, y + 0.2, side * (z + 1.85));
       const a = buildAnchor();
-      a.position.copy(cat).add(V(0, -5.5, 0));
-      a.rotation.set(0, side > 0 ? 0 : Math.PI, side * 0.12);
-      a.position.z = side * (halfBreadth(x, y - 4) + 0.55);
+      // Shank slopes down and aft from the cathead; arms lie across the side.
+      const d = V(Math.cos(0.42), Math.sin(0.42), side * 0.05).normalize();
+      const ring = cat.clone().add(V(0, -0.5, 0));
+      const crown = ring.clone().addScaledVector(d, -5.65);
+      crown.z = side * (halfBreadth(crown.x, crown.y) + 1.25);
+      const yAxis = ring.clone().sub(crown).normalize();
+      const xAxis = V(0, 0, side).sub(yAxis.clone().multiplyScalar(yAxis.z * side)).normalize();
+      const zAxis = V().crossVectors(xAxis, yAxis);
+      a.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis));
+      a.position.copy(crown);
       G.add(a);
-      this.anchors.push({ obj: a, side, home: a.position.clone(), homeRot: a.rotation.clone() });
-      const sh = buildAnchor();
-      sh.scale.setScalar(0.95);
-      const sx = 17.2, sy = deckY('upper', sx) + 0.2;
-      sh.position.set(sx, sy - 3.5, side * (halfBreadth(sx, sy - 1) + 0.45));
-      sh.rotation.set(0, Math.PI / 2, side * -0.2);
-      sh.rotation.x = side * -0.08;
-      G.add(sh);
+      this.anchors.push({ obj: a, side, home: a.position.clone() });
     }
     // Anchor cable (shown when the bower is let go).
     this.cable = new THREE.Mesh(new THREE.BufferGeometry(), M.rope);

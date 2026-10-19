@@ -1,7 +1,7 @@
 // Standing and running rigging as instanced rope segments, plus channels and deadeyes.
 import * as THREE from 'three';
 import { mats } from './materials.js';
-import { deckY, railTop, halfBreadth } from './config.js';
+import { deckY, railTop, halfBreadth, TIERS } from './config.js';
 import { beamBetween, merge } from './geom.js';
 import { xform } from './sails.js';
 
@@ -22,9 +22,10 @@ export class Ropes {
     this._s = new THREE.Vector3();
     this._d = new THREE.Vector3();
   }
-  begin() { this.n = 0; }
+  begin() { this.n = 0; this.segs = []; this.tag = ''; }
   add(a, b, r) {
     if (this.n >= this.capacity) return;
+    this.segs.push([a.clone(), b.clone(), this.tag]);
     const d = this._d.subVectors(b, a);
     const len = d.length();
     if (len < 1e-4) return;
@@ -93,7 +94,7 @@ export class Rigging {
     for (const mast of Object.values(rig.masts)) {
       const s = mast.scale;
       const n = mast.name === 'main' ? 9 : mast.name === 'fore' ? 8 : 6;
-      const x0 = mast.x + 1.6 * s, x1 = mast.x - 7.6 * s;
+      const x0 = mast.x + 0.4 * s, x1 = mast.x - 7.8 * s;
       const yc = deckY('upper', mast.x) + 1.95;
       for (const side of [1, -1]) {
         // Channel.
@@ -107,13 +108,21 @@ export class Rigging {
           const lower = V(x, yc + 0.2, side * zo);
           const upper = V(x, yc + 1.25, side * (zo - 0.03));
           deadeyes.push(lower, upper);
+          R.tag = `${mast.name} lanyard`;
           R.add(lower, upper, 0.025); // lanyard
-          const zh = halfBreadth(x, yc - 2.6) + 0.06;
-          chain.push([lower.clone().add(V(0, -0.15, 0)), V(x + 0.15, yc - 2.6, side * zh)]);
+          // Snap the foot of each chainplate into the gap between upper-deck ports.
+          const up = TIERS[2];
+          const gi = Math.round((x - up.x0) / up.dx - 0.5);
+          const gc = up.x0 + (gi + 0.5) * up.dx;
+          const bx = gc + Math.max(-0.7, Math.min(0.7, x - gc));
+          const zh = halfBreadth(bx, yc - 2.6) + 0.06;
+          chain.push([lower.clone().add(V(0, -0.15, 0)), V(bx, yc - 2.6, side * zh)]);
           const top = head.clone().add(V(0, 0, side * (mast.r.lower + 0.12)));
+          R.tag = `${mast.name} lower shroud`;
           R.add(upper, top, 0.06 * (0.8 + 0.2 * s));
           shrouds.push([upper, top]);
         }
+        R.tag = `${mast.name} lower ratline`;
         ratlines(shrouds, null, yc + 1.8, head.y - 1.2, 0.42, 0.016);
 
         // Futtock shrouds and topmast shrouds from the top's edge.
@@ -124,21 +133,26 @@ export class Rigging {
           const edge = this.L(mast, V(lx, m.topY + 0.2, side * m.topW * 0.48));
           deadeyes.push(edge);
           const fut = this.L(mast, V(lx * 0.3, m.topY - 3.2 * s, side * 0.65));
+          R.tag = `${mast.name} futtock shroud`;
           R.add(edge, fut, 0.035);
+          R.tag = `${mast.name} topmast shroud`;
           const th = this.L(mast, V(mast.dTop, m.crossY - 0.3, side * 0.3));
           R.add(edge.clone().add(V(0, 0.9, 0)), th, 0.045);
           R.add(edge, edge.clone().add(V(0, 0.9, 0)), 0.02);
           tops.push([edge.clone().add(V(0, 0.9, 0)), th]);
         }
+        R.tag = `${mast.name} topmast ratline`;
         ratlines(tops, null, m.topY + 1.6, m.crossY - 1.2, 0.4, 0.013);
 
         // Topgallant shrouds from the crosstrees.
+        R.tag = `${mast.name} topgallant shroud`;
         const ce = this.P(mast, 'crossEnd', side);
         const tgh = this.L(mast, V(mast.dTg, m.tgHead - 0.4, side * 0.14));
-        R.add(ce.clone().add(V(0.4, 0, 0)), tgh, 0.03);
-        R.add(ce.clone().add(V(-0.4, 0, 0)), tgh, 0.03);
+        R.add(ce.clone().add(V(-0.1, 0, 0)), tgh, 0.03);
+        R.add(ce.clone().add(V(-0.8, 0, 0)), tgh, 0.03);
 
         // Backstays to stools aft of the channels.
+        R.tag = `${mast.name} backstay`;
         const bsY = yc + 0.15;
         const stool = (k) => {
           const x = x1 - 0.9 - k * 1.1;
@@ -159,32 +173,37 @@ export class Rigging {
     const bs = rig.bowsprit;
     const F = rig.masts.fore, Mn = rig.masts.main, Mz = rig.masts.mizzen;
     const stays = [
-      [this.P(F, 'lowerHead'), bs.fore, 0.13],
-      [this.P(F, 'lowerHead'), bs.fore.clone().add(V(-1.2, -0.4, 0)), 0.1],
-      [this.P(F, 'topmastHead'), bs.cap, 0.08],
-      [this.P(F, 'topmastHead'), bs.jibEnd, 0.06],
-      [this.P(F, 'tgHead'), bs.flyEnd, 0.045],
-      [this.P(F, 'poleHead'), bs.flyEnd, 0.03],
-      [this.P(Mn, 'lowerHead'), V(F.x + 2.2, deckY('qd', F.x + 2.2) + 0.6, 0), 0.14],
-      [this.P(Mn, 'lowerHead').add(V(0, -0.6, 0)), V(F.x + 3.0, deckY('qd', F.x + 3.0) + 0.6, 0), 0.1],
-      [this.P(Mn, 'topmastHead'), this.P(F, 'lowerHead'), 0.08],
-      [this.P(Mn, 'tgHead'), this.P(F, 'topmastHead'), 0.045],
-      [this.P(Mn, 'poleHead'), this.P(F, 'tgHead'), 0.03],
-      [this.P(Mz, 'lowerHead'), this.L(Mn, V(0, deckY('qd', Mn.x) + 3.5, 0)), 0.1],
-      [this.P(Mz, 'topmastHead'), this.P(Mn, 'topBack'), 0.06],
-      [this.P(Mz, 'tgHead'), this.P(Mn, 'topmastShroudHead'), 0.035],
+      ['fore stay', this.P(F, 'stayLower'), bs.fore, 0.13],
+      ['fore preventer stay', this.P(F, 'stayLower').add(V(0, -0.3, 0)), bs.fore.clone().add(V(-1.2, -0.4, 0)), 0.1],
+      ['fore topmast stay', this.P(F, 'topmastShroudHead'), bs.cap, 0.08],
+      ['jib stay', this.P(F, 'topmastShroudHead'), bs.jibEnd, 0.06],
+      ['fore topgallant stay', this.P(F, 'tgHead'), bs.flyEnd, 0.045],
+      ['fore royal stay', this.P(F, 'poleHead'), bs.flyEnd, 0.03],
+      ['main stay', this.P(Mn, 'stayLower'), V(F.x + 2.2, deckY('qd', F.x + 2.2) + 0.6, 0), 0.14],
+      ['main preventer stay', this.P(Mn, 'stayLower').add(V(0, -0.3, 0)), V(F.x + 3.0, deckY('qd', F.x + 3.0) + 0.6, 0), 0.1],
+      ['main topmast stay', this.P(Mn, 'topmastShroudHead'), this.P(F, 'lowerHead'), 0.08],
+      ['main topgallant stay', this.P(Mn, 'tgHead'), this.P(F, 'topmastShroudHead'), 0.045],
+      ['main royal stay', this.P(Mn, 'poleHead'), this.P(F, 'tgHead'), 0.03],
+      ['mizzen stay', this.P(Mz, 'stayLower'), this.L(Mn, V(0, deckY('qd', Mn.x) + 3.5, 0)), 0.1],
+      ['mizzen topmast stay', this.P(Mz, 'topmastShroudHead'), this.P(Mn, 'topBack'), 0.06],
+      ['mizzen topgallant stay', this.P(Mz, 'tgHead'), this.P(Mn, 'topmastShroudHead'), 0.035],
     ];
-    for (const [a, b, r] of stays) R.add(a, b, r);
+    for (const [tag, a, b, r] of stays) { R.tag = tag; R.add(a, b, r); }
+    R.tag = 'bowsprit rigging';
 
     // Bowsprit rigging: bobstays, shrouds, martingale.
     const knee = (y) => V(31.0 + (y - 2) * 0.35, y, 0);
+    R.tag = 'bobstay';
     R.add(bs.P(10.5, -0.3), knee(1.6), 0.08);
     R.add(bs.P(13.5, -0.3), knee(3.4), 0.08);
     for (const side of [1, -1]) {
+      R.tag = 'bowsprit shroud';
       R.add(bs.P(12, 0), V(28.2, 4.5, side * 2.0), 0.06);
       R.add(bs.P(16, 0), V(28.4, 5.0, side * 2.1), 0.06);
+      R.tag = 'martingale back rope';
       R.add(bs.striker, V(27.5, deckY('qd', 27) - 0.6, side * 2.2), 0.04);
     }
+    R.tag = 'martingale stay';
     R.add(bs.jibEnd, bs.striker, 0.04);
     R.add(bs.flyEnd, bs.striker, 0.035);
     R.end();
@@ -218,15 +237,15 @@ export class Rigging {
       const s = side;
       if (mast.name === 'fore') {
         if (yard.name === 'course') return V(Mn.x + 3.5, railTop(Mn.x + 3.5) + 0.3, s * 7.2);
-        if (yard.name === 'topsail') return this.P(Mn, 'topEdge', s);
-        if (yard.name === 'topgallant') return this.P(Mn, 'crossEnd', s);
-        return this.P(Mn, 'tgHead');
+        if (yard.name === 'topsail') return this.P(Mn, 'crossEnd', s);
+        if (yard.name === 'topgallant') return this.P(Mn, 'tgHead');
+        return this.P(Mn, 'poleHead');
       }
       if (mast.name === 'main') {
         if (yard.name === 'course') return V(-21.5, railTop(-21.5) + 0.3, s * (halfBreadth(-21.5, 9) + 0.1));
-        if (yard.name === 'topsail') return this.P(Mz, 'topEdge', s);
-        if (yard.name === 'topgallant') return this.P(Mz, 'crossEnd', s);
-        return this.P(Mz, 'tgHead');
+        if (yard.name === 'topsail') return this.P(Mz, 'crossEnd', s);
+        if (yard.name === 'topgallant') return this.P(Mz, 'tgHead');
+        return this.P(Mz, 'poleHead');
       }
       if (yard.name === 'course') return this.L(Mn, V(-1.5, deckY('qd', Mn.x) + 6, s * 3));
       if (yard.name === 'topsail') return this.P(Mn, 'topEdge', s);
@@ -238,10 +257,13 @@ export class Rigging {
         const head = this.P(mast, liftHead[yard.name]);
         for (const side of [1, -1]) {
           const arm = xform(V(0, 0, side * yard.L * 0.48), yard.group, this.space);
+          R.tag = `${mast.name} ${yard.name} lift`;
           R.add(arm, head.clone().add(V(0, 0, side * 0.3)), 0.025);
+          R.tag = `${mast.name} ${yard.name} brace`;
           R.addSag(arm, braceTarget(mast, yard, side), 0.022, 0.012, 3);
         }
         // Halyard/tie.
+        R.tag = `${mast.name} ${yard.name} tie`;
         R.add(xform(V(0, yard.r, 0), yard.group, this.space), head, 0.04);
       }
     }
@@ -250,6 +272,7 @@ export class Rigging {
       if (s.kind !== 'course' || !s.mesh.visible) continue;
       const pos = s.geo.attributes.position;
       const cl = [pos.count - s.NU, pos.count - 1];
+      R.tag = `${s.mastName} course sheet/tack`;
       cl.forEach((vi, k) => {
         const p = xform(V(pos.getX(vi), pos.getY(vi), pos.getZ(vi)), s.yard.group, this.space);
         const side = k === 0 ? -1 : 1;
@@ -264,17 +287,38 @@ export class Rigging {
       const pos = s.geo.attributes.position;
       const c = V(pos.getX(s.NU - 1), pos.getY(s.NU - 1), pos.getZ(s.NU - 1));
       const x = Math.min(23, c.x - 4);
+      R.tag = `${s.name} sheet`;
       R.addSag(c, V(x, railTop(x) + 0.3, (halfBreadth(x, 9) - 0.2)), 0.025, 0.02, 3);
     }
     // Spanker boom topping lifts and sheet; gaff vangs.
     const boomEnd = xform(V(rig.boom.L - 0.3, 0, 0), rig.boom.group, this.space);
     const peak = xform(V(rig.gaff.L - 0.2, 0, 0), rig.gaff.group, this.space);
-    for (const side of [1, -1]) R.add(boomEnd, this.P(Mz, 'lowerHead').add(V(0, 0, side * 0.4)), 0.03);
+    R.tag = 'boom topping lift';
+    // One lift each side of the sail: offset across the boom at the bottom, across the mast at the top.
+    // The leeward lift lies slack over the belly of the spanker.
+    const belly = 1.3 * state.wind * state['set.spanker'];
+    for (const side of [1, -1]) {
+      const lo = xform(V(rig.boom.L - 0.3, 0, side * 0.45), rig.boom.group, this.space);
+      const hi = this.P(Mz, 'lowerHead').add(V(0, 0, side * 0.9));
+      const bow = side > 0 ? belly + 0.35 : 0;
+      let prev = lo;
+      for (let k = 1; k <= 8; k++) {
+        const t = k / 8;
+        const p = lo.clone().lerp(hi, t);
+        p.z += bow * Math.sin(Math.PI * Math.min(1, t * 1.25));
+        R.add(prev, p, 0.03);
+        prev = p;
+      }
+    }
+    R.tag = 'spanker sheet';
     R.addSag(boomEnd, V(-29.0, railTop(-29) + 0.3, 0), 0.04, 0.01, 2);
-    for (const side of [1, -1]) R.addSag(peak, V(-28.5, railTop(-28.5) + 0.2, side * 4.2), 0.02, 0.02, 3);
+    R.tag = 'gaff vang';
+    for (const side of [1, -1]) R.addSag(peak, V(-28.5, railTop(-28.5) + 0.2, side * (halfBreadth(-28.5, railTop(-28.5)) - 0.1)), 0.02, 0.02, 3);
+    R.tag = 'peak halyard';
     R.add(peak, this.P(Mz, 'topmastShroudHead'), 0.03);
     // Spritsail yard lifts.
     const sy = rig.spritYard;
+    R.tag = 'spritsail yard rigging';
     for (const side of [1, -1]) {
       const arm = xform(V(0, 0, side * sy.L * 0.48), sy.group, this.space);
       R.add(arm, rig.bowsprit.cap, 0.022);

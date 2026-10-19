@@ -4,7 +4,7 @@
   "description": "Interactive 3D model of HMS Victory (1805) built with Three.js",
   "main": "src/main.js",
   "scripts": {
-    "build": "esbuild src/main.js --bundle --format=iife --outfile=dist/app.js --minify --sourcemap",
+    "build": "esbuild src/main.js --bundle --format=iife --outfile=dist/app.js --minify",
     "watch": "esbuild src/main.js --bundle --format=iife --outfile=dist/app.js --sourcemap --watch",
     "shot": "node tools/shot.mjs"
   },
