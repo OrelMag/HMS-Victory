@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { portList, halfBreadth, deckY } from './config.js';
 import { mats } from './materials.js';
 import { merge } from './geom.js';
+import { Ropes } from './rigging.js';
 
 // Outward hull basis at a point on the side (side = +1 starboard, -1 port).
 export function sideBasis(x, y, side) {
@@ -147,6 +148,9 @@ export class Guns {
     this.lids.castShadow = true;
     this.lids.frustumCulled = false;
     this.group.add(this.lids);
+    // Breeching ropes: from ringbolts either side of each port to the cascabel of the gun.
+    this.breeching = new Ropes(this.group, M.rope, this.ports.length * 6);
+    this.breeching.mesh.castShadow = false;
     this._m = new THREE.Matrix4();
     this._b = new THREE.Matrix4();
     this._r = new THREE.Matrix4();
@@ -197,6 +201,24 @@ export class Guns {
       });
       mesh.instanceMatrix.needsUpdate = true;
     }
+    this.updateBreeching(runOut);
+  }
+
+  updateBreeching(runOut) {
+    const R = this.breeching;
+    R.begin();
+    for (const p of this.ports) {
+      const t = p.tier;
+      if (t.carronade) continue;
+      const out = -0.9 + runOut * 1.6 - p.recoil * 1.3;
+      const breech = p.basis.p.clone().addScaledVector(p.out, out - t.len - 0.1).setY(p.y - 0.02);
+      for (const s of [1, -1]) {
+        const ring = p.basis.p.clone().addScaledVector(p.basis.a, s * (t.w / 2 + 0.28)).addScaledVector(p.basis.n, -0.04);
+        ring.y = p.y - 0.25;
+        R.addSag(ring, breech, 0.028, 0.06, 3);
+      }
+    }
+    R.end();
   }
 
   muzzle(p, runOut) {

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { buildHull } from './hull.js';
 import { buildInterior } from './interior.js';
+import { buildFurnishing } from './furnish.js';
 import { TRIM } from './config.js';
 import { Rig } from './masts.js';
 import { buildSails, xform } from './sails.js';
@@ -130,6 +131,7 @@ export class Ship {
     this.rigging = new Rigging(this.rig);
     this.guns = new Guns(this.body);
     this.fittings = new Fittings(this.body, this.rig);
+    this.body.add(buildFurnishing(this.fittings));
     // Sails press against (and drape round) the standing rigging of their own mast.
     for (const s of this.sails.square) {
       const c = this.rigging.colliders[s.mastName];
