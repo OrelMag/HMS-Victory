@@ -1,0 +1,30 @@
+{
+  "name": "hms-victory",
+  "version": "1.0.0",
+  "description": "Interactive 3D model of HMS Victory (1805) built with Three.js",
+  "main": "src/main.js",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --format=iife --outfile=dist/app.js --minify --sourcemap",
+    "watch": "esbuild src/main.js --bundle --format=iife --outfile=dist/app.js --sourcemap --watch",
+    "shot": "node tools/shot.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OrelMag/HMS-Victory.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/OrelMag/HMS-Victory/issues"
+  },
+  "homepage": "https://github.com/OrelMag/HMS-Victory#readme",
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "playwright-core": "^1.64.1"
+  },
+  "private": true
+}

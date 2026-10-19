@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HMS Victory, 1805: interactive 3D model</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #9fb3c2; font-family: Georgia, 'Times New Roman', serif; }
+  #app, #app canvas { position: fixed; inset: 0; display: block; }
+  #ui { position: fixed; top: 16px; left: 16px; width: 250px; padding: 14px 16px; color: #f3ead6;
+        background: rgba(18, 16, 13, 0.72); border: 1px solid rgba(201, 145, 58, 0.55); border-radius: 6px;
+        backdrop-filter: blur(4px); user-select: none; }
+  #ui h1 { margin: 0 0 10px; font-size: 20px; letter-spacing: 0.06em; font-weight: normal; color: #e7c079; }
+  #ui h1 span { font-size: 13px; color: #c9b79a; margin-left: 4px; }
+  #ui .group { margin-top: 10px; }
+  #ui .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: #b8a888; margin-bottom: 5px; }
+  #ui .row { display: flex; flex-wrap: wrap; gap: 5px; }
+  #ui button { font: inherit; font-size: 13px; color: #f3ead6; background: rgba(255, 255, 255, 0.07);
+               border: 1px solid rgba(201, 145, 58, 0.35); border-radius: 4px; padding: 5px 8px; cursor: pointer; }
+  #ui button:hover { background: rgba(201, 145, 58, 0.25); }
+  #ui button.active { background: rgba(201, 145, 58, 0.55); color: #1a140c; border-color: #e7c079; }
+  #ui button.accent { width: 100%; background: rgba(142, 42, 28, 0.75); border-color: #c45a3c; }
+  #ui .hint { margin-top: 12px; font-size: 11px; color: #a89a80; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="ui"></div>
+<script src="dist/app.js"></script>
+</body>
+</html>
