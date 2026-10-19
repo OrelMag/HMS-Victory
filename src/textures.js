@@ -389,31 +389,6 @@ export function sternTexture(widthAt) {
   const ta = deck('poop') + 0.3;
   g.fillStyle = COLORS.ochre;
   g.fillRect(0, 0, W, py(ta));
-  g.fillStyle = COLORS.gold;
-  const cx = W / 2, cy = py(ta + 1.1), r = (0.75 / 16) * H;
-  g.beginPath();
-  g.moveTo(cx - r, cy - r);
-  g.lineTo(cx + r, cy - r);
-  g.lineTo(cx + r, cy + r * 0.3);
-  g.quadraticCurveTo(cx + r, cy + r * 1.3, cx, cy + r * 1.5);
-  g.quadraticCurveTo(cx - r, cy + r * 1.3, cx - r, cy + r * 0.3);
-  g.closePath();
-  g.fill();
-  g.fillStyle = '#7a1b14';
-  g.fillRect(cx - r * 0.8, cy - r * 0.8, r * 0.75, r * 0.9);
-  g.fillStyle = '#20306a';
-  g.fillRect(cx + r * 0.05, cy - r * 0.8, r * 0.75, r * 0.9);
-  // Scrollwork flourishes.
-  g.strokeStyle = COLORS.gold;
-  g.lineWidth = 6;
-  for (let k = 1; k <= 3; k++) {
-    g.beginPath();
-    g.arc(cx - r * (1.6 + k * 1.3), cy, r * 0.6, 0, Math.PI * 1.6);
-    g.stroke();
-    g.beginPath();
-    g.arc(cx + r * (1.6 + k * 1.3), cy, r * 0.6, Math.PI * 1.4, Math.PI * 3);
-    g.stroke();
-  }
   const tex = toTexture(c, { aniso: 16 });
   tex.userData.glow = toTexture(gc);
   return tex;

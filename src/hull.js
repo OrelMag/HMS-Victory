@@ -7,6 +7,7 @@ import {
 import { gridGeometry, mirroredGrid, beamBetween, cylBetween, balustrade, merge } from './geom.js';
 import { hullTextures, sternTexture, STERN_H0, STERN_H1, COLORS, windowStripTexture, interiorHullTexture } from './textures.js';
 import { mats } from './materials.js';
+import { cherub, cartouche, trailScrolls, railEnds, sternCarvings, galleryFinials, volute } from './carvings.js';
 
 const NU = 220, NV = 120;
 const BULWARK = 0.32;
@@ -128,6 +129,7 @@ export function buildHull() {
   sternMesh.castShadow = sternMesh.receiveShadow = true;
   sternMesh.name = 'stern';
   group.add(sternMesh);
+  group.add(sternCarvings(rows[rows.length - 1][1], new THREE.MeshStandardMaterial({ map: shieldTexture(), roughness: 0.45, metalness: 0.2 })));
   const sternInside = new THREE.Mesh(stern, new THREE.MeshStandardMaterial({ map: sternMat.map, roughness: 0.7, side: THREE.BackSide, color: '#d8cdb4' }));
   sternInside.name = 'innerPlanking';
   group.add(sternInside);
@@ -360,6 +362,7 @@ function buildHead() {
   const tbg = new THREE.ExtrudeGeometry(tb, { depth: 0.62, bevelEnabled: false });
   tbg.translate(0, 0, -0.31);
   g.add(new THREE.Mesh(tbg, M.ochre));
+  g.add(trailScrolls(figX, figY));
 
   // Head rails: three parallel rails per side sweeping from the bows down to the figurehead,
   // tied together by upright head timbers.
@@ -387,6 +390,9 @@ function buildHead() {
   const rails = new THREE.Mesh(merge(railGeo), M.ochre);
   rails.castShadow = true;
   g.add(rails);
+  const ends = [];
+  for (const side of [1, -1]) for (let r = 0; r < 3; r++) ends.push([new THREE.Vector3(figX - 0.62, figY - 0.42 - r * 0.3, side * 0.36), side]);
+  g.add(railEnds(ends));
   g.add(new THREE.Mesh(merge(timberGeo), M.black));
 
   // Head gratings (platform between the rails).
@@ -436,27 +442,55 @@ function buildHead() {
 // Victory's figurehead: the royal arms, crowned, supported by two cherubs.
 function shieldTexture() {
   const c = document.createElement('canvas');
-  c.width = 256; c.height = 300;
+  c.width = 512; c.height = 600;
   const g = c.getContext('2d');
-  const q = [['#b8202a', '#e2b33c'], ['#e2b33c', '#b8202a'], ['#1f3c8c', '#e2b33c'], ['#b8202a', '#e2b33c']];
-  const cell = [[0, 0], [128, 0], [0, 150], [128, 150]];
-  cell.forEach(([x, y], i) => {
-    g.fillStyle = q[i][0];
-    g.fillRect(x, y, 128, 150);
-    g.fillStyle = q[i][1];
-    // Stylised charges: lions / harp / lion rampant.
-    for (let k = 0; k < (i === 0 ? 3 : 1); k++) {
-      const cy = y + (i === 0 ? 30 + k * 42 : 75);
-      g.beginPath();
-      g.ellipse(x + 64, cy, i === 0 ? 34 : 30, i === 0 ? 12 : 34, 0, 0, Math.PI * 2);
-      g.fill();
+  const GOLD = '#e2b33c', RED = '#b8202a', BLUE = '#1f3c8c';
+  // A lion silhouette: passant (walking) or rampant (rearing), facing left, unit size.
+  const lion = (x, y, s, rampant, col) => {
+    g.save();
+    g.translate(x, y);
+    g.scale(s, s);
+    if (rampant) g.rotate(-0.9);
+    g.fillStyle = col;
+    g.beginPath(); g.ellipse(0, 0, 0.42, 0.17, 0, 0, Math.PI * 2); g.fill();            // body
+    g.beginPath(); g.arc(-0.45, -0.12, 0.15, 0, Math.PI * 2); g.fill();                  // head and mane
+    g.beginPath(); g.moveTo(-0.6, -0.12); g.lineTo(-0.72, -0.05); g.lineTo(-0.58, -0.02); g.fill(); // muzzle
+    g.lineWidth = 0.07; g.strokeStyle = col; g.lineCap = 'round';
+    for (const [x0, x1] of [[-0.28, -0.4], [-0.15, -0.05], [0.2, 0.12], [0.32, 0.45]]) {
+      g.beginPath(); g.moveTo(x0, 0.08); g.lineTo(x1, rampant ? 0.42 : 0.38); g.stroke();
     }
-  });
-  g.strokeStyle = '#d4a640';
-  g.lineWidth = 14;
-  g.strokeRect(0, 0, 256, 300);
+    g.beginPath(); g.moveTo(0.4, -0.05); g.quadraticCurveTo(0.75, -0.2, 0.62, -0.5); g.stroke();  // tail
+    g.beginPath(); g.arc(0.6, -0.52, 0.06, 0, Math.PI * 2); g.fill();
+    g.restore();
+  };
+  const W = 256, H = 300;
+  // England (1st and 4th): three gold lions passant on red.
+  for (const [x, y] of [[0, 0], [W, H]]) {
+    g.fillStyle = RED; g.fillRect(x, y, W, H);
+    for (let k = 0; k < 3; k++) lion(x + W / 2, y + 60 + k * 85, 120, false, GOLD);
+  }
+  // Scotland (2nd): red lion rampant on gold within a double tressure.
+  g.fillStyle = GOLD; g.fillRect(W, 0, W, H);
+  g.strokeStyle = RED; g.lineWidth = 5;
+  g.strokeRect(W + 18, 18, W - 36, H - 36); g.strokeRect(W + 30, 30, W - 60, H - 60);
+  lion(W + W / 2, H / 2 + 10, 170, true, RED);
+  // Ireland (3rd): a gold harp on blue.
+  g.fillStyle = BLUE; g.fillRect(0, H, W, H);
+  g.strokeStyle = GOLD; g.lineWidth = 12; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(80, H + 240); g.lineTo(80, H + 70); g.quadraticCurveTo(150, H + 40, 190, H + 90); g.lineTo(80, H + 240); g.stroke();
+  g.lineWidth = 3;
+  for (let k = 1; k < 6; k++) { g.beginPath(); g.moveTo(80 + k * 17, H + 70 + k * 5); g.lineTo(80 + k * 17, H + 240 - k * 25); g.stroke(); }
+  // Hanover in pretence, crowned (small red escutcheon with a white horse).
+  g.fillStyle = RED;
+  g.beginPath(); g.moveTo(206, 250); g.lineTo(306, 250); g.lineTo(306, 320); g.quadraticCurveTo(256, 370, 206, 320); g.closePath(); g.fill();
+  g.fillStyle = '#f0ece0';
+  g.beginPath(); g.ellipse(256, 300, 26, 12, -0.3, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(234, 282, 8, 14, 0.5, 0, Math.PI * 2); g.fill();
+  g.fillStyle = GOLD; g.fillRect(226, 232, 60, 14);
+  g.strokeStyle = '#d4a640'; g.lineWidth = 24; g.strokeRect(0, 0, 512, 600);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
   return t;
 }
 
@@ -485,6 +519,10 @@ function buildFigurehead(figX, figY) {
   shield.scale.setScalar(S);
   shield.position.set(0.25, 0.9, 0);
   fig.add(shield);
+  const frame = cartouche();
+  frame.scale.setScalar(S);
+  frame.position.set(0.15, 0.95, 0);
+  fig.add(frame);
 
   // Crown above the shield.
   const crown = new THREE.Group();
@@ -511,6 +549,12 @@ function buildFigurehead(figX, figY) {
   // Two cherubs supporting the arms, one each side.
   const flesh = new THREE.MeshStandardMaterial({ color: '#e8c7a4', roughness: 0.55 });
   for (const side of [1, -1]) {
+    const cb = cherub(side);
+    cb.scale.setScalar(S * 1.1);
+    cb.position.set(0.0, 1.05, side * 1.55);
+    fig.add(cb);
+  }
+  for (const side of []) {
     const c = new THREE.Group();
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 0.42, 4, 12), flesh);
     body.rotation.x = side * 0.25;
@@ -628,5 +672,30 @@ function buildQuarterGalleries() {
     m.castShadow = true;
     g.add(m);
   }
+  // Raised gilded mouldings round the gallery between the tiers, and finials above and below.
+  const surf = (t, h, out) => {
+    const e = env(h);
+    const xm = (x0 + x1) / 2, half = (x1 - x0) / 2 * (0.25 + 0.75 * Math.min(1, e * 1.4));
+    const x = xm + (t * 2 - 1) * half;
+    return [x, halfBreadth(x, h) + depth * e * Math.sin(t * Math.PI) ** 0.45 + out];
+  };
+  const mould = [];
+  const fin = [];
+  for (const side of [1, -1]) {
+    for (const h of [hBot - 0.05, DECK.upper + hs + 0.3, hTop + 0.02]) {
+      const pts = [];
+      for (let k = 0; k <= 20; k++) {
+        const [x, z] = surf(0.03 + 0.94 * k / 20, h, 0.04);
+        pts.push(new THREE.Vector3(x, h, side * z));
+      }
+      mould.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 30, 0.05, 6));
+    }
+    const xm = (x0 + x1) / 2;
+    fin.push({ p: new THREE.Vector3(xm, hDrop + 0.25, side * (halfBreadth(xm, hDrop + 0.25) + 0.08)), kind: 'drop' });
+    fin.push({ p: new THREE.Vector3(xm, hDome - 0.05, side * (halfBreadth(xm, hDome) + 0.12)), kind: 'top' });
+  }
+  const mm = new THREE.Mesh(merge(mould), M.gold);
+  mm.castShadow = true;
+  g.add(mm, galleryFinials(fin));
   return g;
 }
