@@ -3,6 +3,8 @@
 An interactive, browser-based 3D model of HMS Victory as she was at Trafalgar (1805),
 built with Three.js. Opens as a static page, no install needed.
 
+**Live:** https://orelmag.github.io/HMS-Victory/
+
 ## Planned features
 
 ### Exterior
