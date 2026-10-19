@@ -65,7 +65,7 @@ Tools (need Microsoft Edge, or set `SHOT_CHANNEL=chrome`):
   another, in every pose, across wind directions and strengths, and through every pose change.
 
 ## Phases
-1. Exterior and the three poses
+1. Exterior and poses (done)
 2. Deck structure and room layout
 3. Interior furnishing
 4. Isometric character mode and polish

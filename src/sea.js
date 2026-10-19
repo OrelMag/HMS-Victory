@@ -104,14 +104,15 @@ vSeaWorld = transformed;`);
         .replace('#include <common>', `#include <common>
 varying float vCrest; varying vec3 vSeaWorld;`)
         .replace('#include <color_fragment>', `#include <color_fragment>
-float crest = smoothstep(0.55, 1.15, vCrest);
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.22, 0.26), smoothstep(-0.4, 0.9, vCrest) * 0.45);
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.75, 0.8, 0.8), crest * 0.2);`);
+float crest = smoothstep(0.95, 1.6, vCrest);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.2, 0.24), smoothstep(-0.8, 1.4, vCrest) * 0.22);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.75, 0.8, 0.8), crest * 0.18);`);
     };
     // Normal map uv needs the scrolling offset too.
     this.normalMap = normalMap;
     this.mesh = new THREE.Mesh(geo, mat);
-    this.mesh.receiveShadow = true;
+    // No shadows on the water: real sea shows them only faintly, and a shadow map this size would clip.
+    this.mesh.receiveShadow = false;
     this.mesh.frustumCulled = false;
     this.mesh.name = 'sea';
   }

@@ -155,48 +155,52 @@ export class Wake {
     this.tex = tex;
     this.uniforms = { uFoam: { value: tex }, uScroll: { value: 0 }, uStrength: { value: 0 } };
 
-    // Strip around the hull at the waterline, wider at the bow.
-    const N = 90, rows = 6;
     const pos = [], uv = [], alpha = [], idx = [];
-    const outline = [];
-    const x0 = xStern(0) + 0.3, x1 = xBow(0);
-    for (let i = 0; i < N; i++) outline.push((i / (N - 1)));
-    for (const side of [1, -1]) {
+    // A foam strip: f(t) -> { x, z, px, pz, half, a }, sampled along its length (t) and across (s).
+    const strip = (n, cols, f, uvScale = 12) => {
       const base = pos.length / 3;
-      for (let i = 0; i < N; i++) {
-        const u = outline[i];
-        const x = x0 + (x1 - x0) * u;
-        const hb = halfBreadth(x, 0.05);
-        const width = 1.2 + 4.5 * u ** 3;
-        for (let j = 0; j < rows; j++) {
-          const t = j / (rows - 1);
-          pos.push(x + t * 1.2 * u, 0, side * (hb - 0.3 + t * width));
-          uv.push(x / 9, t * width / 9 + (side > 0 ? 0 : 0.5));
-          alpha.push((1 - t) ** 1.4 * (0.35 + 0.65 * u ** 2));
+      for (let i = 0; i < n; i++) {
+        const q = f(i / (n - 1));
+        for (let j = 0; j < cols; j++) {
+          const s = (j / (cols - 1)) * 2 - 1;
+          const x = q.x + q.px * s * q.half, z = q.z + q.pz * s * q.half;
+          pos.push(x, 0, z);
+          uv.push(x / uvScale, z / uvScale);
+          alpha.push(Math.min(1, q.a(s)));
         }
       }
-      for (let i = 0; i < N - 1; i++) for (let j = 0; j < rows - 1; j++) {
-        const a = base + i * rows + j, b = a + rows, c2 = a + 1, d = b + 1;
-        if (side > 0) idx.push(a, c2, b, b, c2, d); else idx.push(a, b, c2, b, d, c2);
+      for (let i = 0; i < n - 1; i++) for (let j = 0; j < cols - 1; j++) {
+        const a = base + i * cols + j, b = a + cols, c2 = a + 1, d = b + 1;
+        idx.push(a, b, c2, b, d, c2);
       }
+    };
+    const x0 = xStern(0) + 0.3, x1 = xBow(0);
+
+    // Foam pushed up along the waterline, heaviest at the bow (the bow wave).
+    for (const side of [1, -1]) {
+      strip(110, 6, (u) => {
+        const x = x0 + (x1 - x0) * u;
+        const w = 1.6 + 6.5 * u ** 3;
+        const hb = halfBreadth(x, 0.05);
+        return { x: x + 0.6 * u ** 2, z: side * (hb - 0.3 + w / 2), px: 0, pz: side, half: w / 2,
+          a: (s) => ((1 - (s + 1) / 2) ** 1.3) * (0.6 + 1.3 * u ** 2.2) };
+      }, 9);
     }
-    // Wake trail astern.
-    const base = pos.length / 3;
-    const W = 40, cols = 7;
-    for (let i = 0; i < W; i++) {
-      const t = i / (W - 1);
-      const x = x0 - t * 220;
-      const half = 3 + t * 30;
-      for (let j = 0; j < cols; j++) {
-        const s = (j / (cols - 1)) * 2 - 1;
-        pos.push(x, 0, s * half);
-        uv.push(x / 14, s * half / 14);
-        alpha.push((1 - t) ** 1.6 * (1 - Math.abs(s) ** 2) * 0.8);
-      }
-    }
-    for (let i = 0; i < W - 1; i++) for (let j = 0; j < cols - 1; j++) {
-      const a = base + i * cols + j, b = a + cols, c2 = a + 1, d = b + 1;
-      idx.push(a, b, c2, b, d, c2);
+    // Churned water astern: widens and fades.
+    strip(60, 9, (t) => ({
+      x: x0 - t * 260, z: 0, px: 0, pz: 1, half: 2.6 + 18 * t ** 0.8,
+      a: (s) => (1 - t) ** 1.8 * (1 - s * s) * 0.95 * Math.min(1, t * 40 + 0.3),
+    }), 14);
+    // The two arms of the Kelvin wake, spreading back from the bow at 19.5 degrees.
+    const k = THREE.MathUtils.degToRad(19.5);
+    for (const side of [1, -1]) {
+      const xs = x1 - 3.5, zs = side * (halfBreadth(xs, 0.05) + 1.5);
+      const dx = -Math.cos(k), dz = side * Math.sin(k);
+      strip(50, 5, (t) => {
+        const d = t * 240;
+        return { x: xs + dx * d, z: zs + dz * d, px: dz * side, pz: -dx * side, half: 1.4 + d * 0.035,
+          a: (s) => 0.6 * (1 - t) ** 1.5 * (1 - s * s) * Math.min(1, t * 30 + 0.2) };
+      }, 12);
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -220,7 +224,7 @@ export class Wake {
         gl_FragColor = vec4(vec3(0.95), (f * 0.7 + f2 * 0.6) * vA * uStrength);
         #include <fog_fragment>
         }`,
-      transparent: true, depthWrite: false, fog: true,
+      transparent: true, depthWrite: false, fog: true, side: THREE.DoubleSide,
       polygonOffset: true, polygonOffsetFactor: -2,
     });
     mat.uniforms.uFoam.value = tex;
