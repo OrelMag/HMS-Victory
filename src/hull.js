@@ -85,7 +85,7 @@ export function buildHull() {
     const y = lerp(bulwarkBottom(x) - 0.05, yt, j / (NB - 1));
     return [x, y, Math.max(0.05, halfBreadth(x, y) - BULWARK)];
   }, (i, j) => [topRow[i][0] / 4, j / (NB - 1)], true);
-  const innerMesh = new THREE.Mesh(inner, M.red);
+  const innerMesh = new THREE.Mesh(inner, M.inside);
   innerMesh.receiveShadow = true;
   group.add(innerMesh);
 
@@ -104,7 +104,7 @@ export function buildHull() {
     const w = Math.max(0.1, halfBreadth(xsT + 0.4, y) - BULWARK);
     return [xStern(y) + 0.35, y, lerp(-w, w, k / 11)];
   }, null, true);
-  group.add(new THREE.Mesh(sInner, M.red));
+  group.add(new THREE.Mesh(sInner, M.inside));
 
   // ---- Decks ----
   const deckGeoms = [];
@@ -152,7 +152,7 @@ export function buildHull() {
     }, null, s < 0));
   }
   const edgeGeo = merge(edges);
-  const edgeMat = M.red.clone();
+  const edgeMat = M.inside.clone();
   edgeMat.side = THREE.DoubleSide;
   group.add(new THREE.Mesh(edgeGeo, edgeMat));
 
@@ -260,7 +260,7 @@ function buildHead() {
   const M = mats();
   const g = new THREE.Group();
   g.name = 'head';
-  const figX = 33.0, figY = deckY('upper', 30) + 2.3;
+  const figX = 33.35, figY = deckY('upper', 30) + 2.3;
 
   // Knee of the head (side profile extruded).
   const s = new THREE.Shape();

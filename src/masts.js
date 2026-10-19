@@ -1,12 +1,12 @@
 // Masts, tops, yards, bowsprit, gaff and boom.
 import * as THREE from 'three';
-import { MASTS, deckY } from './config.js';
+import { MASTS, YARDS, deckY, halfBreadth } from './config.js';
 import { cylBetween, merge, beamBetween } from './geom.js';
 import { mats } from './materials.js';
 
 // Main-mast dimensions (heights above the waterline). Other masts scale about the upper deck.
 const MAIN = {
-  lowerHead: 34.0, topY: 30.6, topLen: 5.0, topW: 6.8, rLower: [0.5, 0.4],
+  lowerHead: 34.0, topY: 30.6, topLen: 5.3, topW: 7.1, rLower: [0.5, 0.4],
   topmastHeel: 29.6, topmastHead: 50.4, crossY: 47.0, crossW: 4.6, rTop: [0.33, 0.22],
   tgHeel: 46.4, tgHead: 58.4, poleHead: 63.4, rTg: [0.19, 0.08],
   yards: [
@@ -113,7 +113,6 @@ export class Rig {
 
     // Yards (mizzen has a crossjack; no royal yard on the mizzen in 1805 sail plan).
     for (const y of MAIN.yards) {
-      if (name === 'mizzen' && y.name === 'royal') continue;
       const yard = this.buildYard(mast, y, H, M);
       mast.yards[y.name] = yard;
     }
@@ -122,7 +121,7 @@ export class Rig {
 
   buildYard(mast, spec, H, M) {
     const s = mast.scale;
-    const L = spec.L * s, r = spec.r * (0.75 + 0.25 * s);
+    const L = YARDS[mast.name][spec.name], r = spec.r * (0.75 + 0.25 * s);
     const g = new THREE.Group();
     const ySet = H(spec.ySet), yLow = H(spec.yLow);
     const off = spec.name === 'course' ? mast.r.lower + r + 0.1 : spec.name === 'topsail' ? mast.dTop + mast.r.top + r + 0.05 : mast.dTg + r + 0.18;
@@ -177,17 +176,17 @@ export class Rig {
 
   buildBowsprit(M) {
     const heel = new THREE.Vector3(21.2, deckY('qd', 21.2) + 0.2, 0);
-    const steeve = THREE.MathUtils.degToRad(22);
+    const steeve = THREE.MathUtils.degToRad(30);
     const dir = new THREE.Vector3(Math.cos(steeve), Math.sin(steeve), 0);
     const P = (d, up = 0) => heel.clone().addScaledVector(dir, d).add(new THREE.Vector3(-Math.sin(steeve) * up, Math.cos(steeve) * up, 0));
     const parts = [], black = [];
-    parts.push(cylBetween(P(0), P(23.5), 0.52, 0.36, 16));
-    parts.push(cylBetween(P(17.5, 0.62), P(35.5, 0.62), 0.27, 0.15, 12));
-    parts.push(cylBetween(P(32.5, 0.95), P(41.0, 0.95), 0.13, 0.07, 10));
-    black.push(beamBetween(P(23.0, 0.1), P(23.0, 0.95), 0.75, 0.45, new THREE.Vector3(0, 0, 1)));
-    black.push(beamBetween(P(35.0, 0.62), P(35.0, 1.0), 0.4, 0.3, new THREE.Vector3(0, 0, 1)));
+    parts.push(cylBetween(P(0), P(22.6), 0.47, 0.33, 16));
+    parts.push(cylBetween(P(16.4, 0.6), P(32.5, 0.6), 0.2, 0.12, 12));
+    parts.push(cylBetween(P(29.8, 0.9), P(38.8, 0.9), 0.11, 0.06, 10));
+    black.push(beamBetween(P(22.1, 0.1), P(22.1, 0.95), 0.7, 0.42, new THREE.Vector3(0, 0, 1)));
+    black.push(beamBetween(P(32.0, 0.6), P(32.0, 0.95), 0.36, 0.28, new THREE.Vector3(0, 0, 1)));
     // Dolphin striker.
-    black.push(cylBetween(P(23.2, -0.2), P(23.2, -3.0), 0.08, 0.06, 6));
+    black.push(cylBetween(P(22.3, -0.2), P(22.3, -2.8), 0.08, 0.06, 6));
     const mesh = new THREE.Mesh(merge(parts), M.mast);
     const bm = new THREE.Mesh(merge(black), M.spar);
     mesh.castShadow = bm.castShadow = true;
@@ -196,13 +195,13 @@ export class Rig {
       P,
       heel, dir, steeve,
       stemPoint: P(9),
-      fore: P(10.5, 0.4), cap: P(22.8, 0.4), jib: P(30.5, 0.85), jibEnd: P(35.2, 0.85),
-      flyEnd: P(40.8, 1.05), striker: P(23.2, -3.0),
+      fore: P(10.5, 0.4), cap: P(21.9, 0.4), jib: P(28.0, 0.8), jibEnd: P(32.2, 0.8),
+      flyEnd: P(38.6, 1.0), striker: P(22.3, -2.8),
     };
     // Spritsail yard under the bowsprit.
     const g = new THREE.Group();
-    g.position.copy(P(18.5, -0.75));
-    const L = 20.5, r = 0.2;
+    g.position.copy(P(18.0, -0.7));
+    const L = 19.66, r = 0.2;
     const prof = [];
     for (let i = 0; i <= 10; i++) prof.push(new THREE.Vector2(r * (1 - 0.5 * (i / 10) ** 1.6), (i / 10) * L / 2));
     const geo = merge([new THREE.LatheGeometry(prof, 8), new THREE.LatheGeometry(prof, 8).scale(1, -1, 1)]);
@@ -222,7 +221,7 @@ export class Rig {
     gaff.position.set(-mz.r.lower - 0.1, m.topY - 2.4, 0);
     const peak = THREE.MathUtils.degToRad(38);
     gaff.rotation.z = Math.PI - peak;
-    const gl = 14.2;
+    const gl = 13.9;
     gaff.add(new THREE.Mesh(cylBetween(new THREE.Vector3(0, 0, 0), new THREE.Vector3(gl, 0, 0), 0.2, 0.12, 10), M.spar));
     mz.group.add(gaff);
     // Boom: from the mizzen over the poop, out past the taffrail.
@@ -230,7 +229,7 @@ export class Rig {
     const by = deckY('poop', -17.4) + 2.3;
     boom.position.set(-mz.r.lower - 0.1, by, 0);
     boom.rotation.z = Math.PI - 0.04;
-    const bl = 19.5;
+    const bl = 22.25;
     boom.add(new THREE.Mesh(cylBetween(new THREE.Vector3(0, 0, 0), new THREE.Vector3(bl, 0, 0), 0.24, 0.16, 10), M.spar));
     mz.group.add(boom);
     for (const o of [gaff, boom]) o.children[0].castShadow = true;

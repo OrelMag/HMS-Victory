@@ -100,7 +100,7 @@ export class Rigging {
       const s = mast.scale;
       const col = this.colliders[mast.name] = { lower: [], futtock: [], topmast: [], tg: [], backstay: [] };
       const n = mast.name === 'main' ? 9 : mast.name === 'fore' ? 8 : 6;
-      const x0 = mast.x + 0.4 * s, x1 = mast.x - 7.8 * s;
+      const x0 = mast.x + 0.4 * s, x1 = Math.max(mast.x - 7.8 * s, mast.name === 'mizzen' ? -21.9 : -99);
       const yc = deckY('upper', mast.x) + 1.95;
       for (const side of [1, -1]) {
         // Channel.
@@ -165,6 +165,10 @@ export class Rigging {
         R.tag = `${mast.name} backstay`;
         const bsY = yc + 0.15;
         const stool = (k) => {
+          if (mast.name === 'mizzen') {
+            const x = -22.6 - k * 0.7, y = railTop(x) - 0.3;
+            return V(x, y, side * (halfBreadth(x, y) + 0.6));
+          }
           const x = x1 - 0.9 - k * 1.1;
           return V(x, bsY, side * (halfBreadth(x, bsY) + 0.9));
         };
@@ -189,7 +193,7 @@ export class Rigging {
     const F = rig.masts.fore, Mn = rig.masts.main, Mz = rig.masts.mizzen;
     const stays = [
       ['fore stay', this.P(F, 'stayLower'), bs.fore, 0.13],
-      ['fore preventer stay', this.P(F, 'stayLower').add(V(0, -0.3, 0)), bs.fore.clone().add(V(-1.2, -0.4, 0)), 0.1],
+      ['fore preventer stay', this.P(F, 'stayLower').add(V(0, -0.3, 0)), bs.P(12.5, 0.4), 0.1],
       ['fore topmast stay', this.P(F, 'topmastShroudHead'), bs.cap, 0.08],
       ['jib stay', this.P(F, 'topmastShroudHead'), bs.jibEnd, 0.06],
       ['fore topgallant stay', this.P(F, 'tgHead'), bs.flyEnd, 0.045],
@@ -201,9 +205,10 @@ export class Rigging {
       ['main royal stay', this.P(Mn, 'poleHead'), this.P(F, 'tgHead'), 0.03],
       ['mizzen stay', this.P(Mz, 'stayLower'), this.L(Mn, V(0, deckY('qd', Mn.x) + 3.5, 0)), 0.1],
       ['mizzen topmast stay', this.P(Mz, 'topmastShroudHead'), this.P(Mn, 'topBack'), 0.06],
-      ['mizzen topgallant stay', this.P(Mz, 'tgHead'), this.P(Mn, 'topmastShroudHead'), 0.035],
+      ['mizzen topgallant stay', this.P(Mz, 'tgHead'), this.P(Mn, 'lowerHead'), 0.035],
     ];
-    for (const [tag, a, b, r] of stays) { R.tag = tag; R.add(a, b, r); }
+    this.stayLines = {};
+    for (const [tag, a, b, r] of stays) { R.tag = tag; R.add(a, b, r); this.stayLines[tag] = [a, b]; }
     R.tag = 'bowsprit rigging';
 
     // Bowsprit rigging: bobstays, shrouds, martingale.
@@ -259,8 +264,7 @@ export class Rigging {
       if (mast.name === 'main') {
         if (yard.name === 'course') return V(-21.5, railTop(-21.5) + 0.3, s * (halfBreadth(-21.5, 9) + 0.1));
         if (yard.name === 'topsail') return V(Mz.x + 1.0, railTop(Mz.x + 1.0) + 0.6, s * (halfBreadth(Mz.x + 1.0, 9) + 0.4));
-        if (yard.name === 'topgallant') return this.P(Mz, 'tgHead');
-        return this.P(Mz, 'poleHead');
+        return this.P(Mz, 'poleHead').add(V(0, 0.2, 0));
       }
       if (yard.name === 'course') return this.L(Mn, V(-1.5, deckY('qd', Mn.x) + 6, s * 3));
       if (yard.name === 'topsail') return this.P(Mn, 'topEdge', s);

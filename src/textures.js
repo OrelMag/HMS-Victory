@@ -31,10 +31,12 @@ function toTexture(c, { srgb = true, repeat = false, aniso = 8 } = {}) {
   return t;
 }
 
+// 1805 colours after Goodwin's reading of the dockyard accounts: no red at all; the "black"
+// was a deep slate grey and the yellow a pale ochre mixed with white.
 export const COLORS = {
-  black: '#16130f',
-  ochre: '#c9913a',
-  red: '#8e2a1c',
+  black: '#2a2d30',
+  ochre: '#cfa65a',
+  red: '#a88a52', // port reveals: ochre in shadow (kept as a key for older code)
   deck: '#b49c76',
   canvas: '#e8dfc8',
   copper: '#a8603a',

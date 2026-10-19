@@ -34,6 +34,38 @@ function barrelGeometry(len, bore) {
   return merge([g, tr]);
 }
 
+// 68-pounder carronade: short, thick barrel with a flared muzzle and a loop beneath.
+function carronadeGeometry(len, bore) {
+  const R = bore * 1.65;
+  const pts = [
+    [0, -0.1], [R * 0.5, -0.09], [R * 0.75, -0.04], [R * 0.95, 0.05], [R, 0.25 * len], [R * 0.92, 0.6 * len],
+    [R * 0.86, 0.82 * len], [R * 1.05, 0.9 * len], [R * 1.08, len], [bore, len], [bore, len * 0.55],
+  ].map(([r, y]) => new THREE.Vector2(r, y));
+  const g = new THREE.LatheGeometry(pts, 16);
+  g.rotateX(Math.PI / 2);
+  const loop = new THREE.BoxGeometry(R * 0.5, R * 0.9, R * 0.9);
+  loop.translate(0, -R * 1.05, 0.45 * len);
+  return merge([g, loop]);
+}
+
+// Carronade slide: a bed on which the gun recoils, pivoting at the port.
+function slideGeometry(len, bore) {
+  const parts = [];
+  const slide = new THREE.BoxGeometry(bore * 3.2, bore * 1.0, len * 1.5);
+  slide.translate(0, bore * 2.4, len * 0.75);
+  parts.push(slide);
+  const bed = new THREE.BoxGeometry(bore * 3.6, bore * 1.6, len * 1.3);
+  bed.translate(0, bore * 0.95, len * 0.7);
+  parts.push(bed);
+  for (const s of [1, -1]) {
+    const wh = new THREE.CylinderGeometry(bore * 0.9, bore * 0.9, bore * 0.6, 10);
+    wh.rotateZ(Math.PI / 2);
+    wh.translate(s * bore * 2.0, bore * 0.9, len * 0.15);
+    parts.push(wh);
+  }
+  return merge(parts);
+}
+
 function carriageGeometry(len, bore) {
   const w = bore * 6.2, L = len * 0.5;
   const parts = [];
@@ -96,10 +128,10 @@ export class Guns {
     this.carriages = [];
     for (const [key, list] of this.byTier) {
       const t = list[0].tier;
-      const bm = new THREE.InstancedMesh(barrelGeometry(t.len, t.bore), M.iron, list.length);
+      const bm = new THREE.InstancedMesh(t.carronade ? carronadeGeometry(t.len, t.bore) : barrelGeometry(t.len, t.bore), M.iron, list.length);
       bm.castShadow = true;
       bm.frustumCulled = false;
-      const cm = new THREE.InstancedMesh(carriageGeometry(t.len, t.bore), M.red, list.length);
+      const cm = new THREE.InstancedMesh(t.carronade ? slideGeometry(t.len, t.bore) : carriageGeometry(t.len, t.bore), M.carriage, list.length);
       cm.castShadow = true;
       cm.receiveShadow = true;
       cm.frustumCulled = false;
@@ -111,7 +143,7 @@ export class Guns {
     this.lidPorts = this.ports.filter((p) => p.tier.lid);
     const lidGeo = new THREE.BoxGeometry(1, 1, 1);
     lidGeo.translate(0, -0.5, 0.5);
-    this.lids = new THREE.InstancedMesh(lidGeo, [M.black, M.black, M.black, M.black, M.black, M.red], this.lidPorts.length);
+    this.lids = new THREE.InstancedMesh(lidGeo, [M.black, M.black, M.black, M.black, M.black, M.inside], this.lidPorts.length);
     this.lids.castShadow = true;
     this.lids.frustumCulled = false;
     this.group.add(this.lids);
@@ -159,7 +191,7 @@ export class Guns {
         q.setFromUnitVectors(fwd, p.out);
         const surf = p.basis.p.clone();
         const muzzleOut = -0.9 + runOut * 1.6 - p.recoil * 1.3;
-        pos.copy(surf).addScaledVector(p.out, muzzleOut - t.len * 0.88);
+        pos.copy(surf).addScaledVector(p.out, muzzleOut - t.len * (t.carronade ? 1.2 : 0.88));
         pos.y = deckY(t.deck, p.x) + 0.02;
         mesh.setMatrixAt(i, m.compose(pos, q, one));
       });

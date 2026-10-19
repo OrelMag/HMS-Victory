@@ -150,7 +150,7 @@ export class Fittings {
 
     // Quarter boats on davits.
     for (const side of [1, -1]) {
-      const x = -21.8, y = railTop(x) - 0.4;
+      const x = -26.4, y = railTop(x) - 0.4;
       const z = halfBreadth(x, y) + 1.7;
       const cutter = buildBoat(7.4, 2.0, 0.8, '#1d1b19');
       cutter.position.set(x, y, side * z);
@@ -255,12 +255,12 @@ export class Fittings {
     // Galley chimney through the forecastle.
     {
       const ch = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.6, 0.6), M.copper);
-      ch.position.set(21.0, deckY('qd', 21) + 0.8, 1.6);
+      ch.position.set(20.3, deckY('qd', 20.3) + 0.8, 1.6);
       ch.castShadow = true;
       G.add(ch);
       const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.5, 10), M.copper);
       cap.rotation.z = Math.PI / 2;
-      cap.position.set(21.0, deckY('qd', 21) + 1.75, 1.6);
+      cap.position.set(20.3, deckY('qd', 20.3) + 1.75, 1.6);
       G.add(cap);
     }
 
@@ -309,7 +309,7 @@ export class Fittings {
       const cat = V(x + 1.35, y + 0.2, side * (z + 1.85));
       const a = buildAnchor();
       // Shank slopes down and aft from the cathead; arms lie across the side.
-      const d = V(Math.cos(0.42), Math.sin(0.42), side * 0.05).normalize();
+      const d = V(Math.cos(1.05), Math.sin(1.05), side * 0.05).normalize();
       const ring = cat.clone().add(V(0, -0.5, 0));
       const crown = ring.clone().addScaledVector(d, -5.65);
       crown.z = side * (halfBreadth(crown.x, crown.y) + 1.25);

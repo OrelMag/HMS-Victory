@@ -107,7 +107,7 @@ export class SquareSail {
         uv[k * 2 + 1] = this.reef ? 1 - v : py / 4;
       }
     }
-    if (this.colliders?.length) this.drape(pos);
+    if (this.colliders?.length || this.stays?.length) this.drape(pos);
     this.geo.attributes.position.needsUpdate = true;
     this.geo.attributes.uv.needsUpdate = true;
     this.geo.computeVertexNormals();
@@ -132,8 +132,18 @@ export class SquareSail {
         const target = sx + margin;
         if (P.x < target) need = Math.max(need, P.x + (target - P.x) * w * w * (3 - 2 * w));
       }
-      if (need > P.x) {
-        P.x = need;
+      let moved = false;
+      if (need > P.x) { P.x = need; moved = true; }
+      // Stays ahead: the canvas bellies up against them but not through them.
+      for (const [a, b] of this.stays || []) {
+        if (P.y < Math.min(a.y, b.y) || P.y > Math.max(a.y, b.y)) continue;
+        const t = (P.y - a.y) / (b.y - a.y);
+        const sx = a.x + (b.x - a.x) * t, sz = a.z + (b.z - a.z) * t;
+        const w = 1 - Math.min(1, Math.abs(P.z - sz) / 2.2);
+        const limit = sx - 0.3;
+        if (w > 0 && P.x > limit) { P.x -= (P.x - limit) * w * w * (3 - 2 * w); moved = true; }
+      }
+      if (moved) {
         P.applyMatrix4(back);
         pos[k] = P.x; pos[k + 1] = P.y; pos[k + 2] = P.z;
       }

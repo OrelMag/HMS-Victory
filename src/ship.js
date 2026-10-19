@@ -1,6 +1,7 @@
 // The ship: assembles all parts, rides the waves and blends between poses.
 import * as THREE from 'three';
 import { buildHull } from './hull.js';
+import { TRIM } from './config.js';
 import { Rig } from './masts.js';
 import { buildSails, xform } from './sails.js';
 import { Rigging } from './rigging.js';
@@ -119,6 +120,13 @@ export class Ship {
         topgallant: [...c.tg, ...c.backstay],
         royal: [...c.backstay],
       }[s.kind] || [];
+      // ...and are held back by the stays in front of them.
+      const ahead = {
+        fore: { course: ['fore stay', 'fore preventer stay'], topsail: ['fore topmast stay', 'jib stay'], topgallant: ['fore topgallant stay'], royal: ['fore royal stay'] },
+        main: { course: ['main stay', 'main preventer stay'], topsail: ['main topmast stay'], topgallant: ['main topgallant stay'], royal: ['main royal stay'] },
+        mizzen: { topsail: ['mizzen topmast stay'], topgallant: ['mizzen topgallant stay'] },
+      }[s.mastName]?.[s.kind] || [];
+      s.stays = ahead.map((n) => this.rigging.stayLines[n]).filter(Boolean);
     }
 
     // Flags (in body space; placed every frame).
@@ -216,6 +224,7 @@ export class Ship {
     this.root.rotation.z = Math.atan2(hb - hs, 2 * L) * 0.8;
     this.root.rotation.x = -Math.atan2(hst - hp, 2 * B) * 0.6;
     this.body.rotation.x = W.heel;
+    this.body.rotation.z = TRIM;
     this.distance += W.speed * dt;
 
     if (this.dirty) {
