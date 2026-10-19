@@ -177,7 +177,7 @@ export class Rig {
 
   buildBowsprit(M) {
     const heel = new THREE.Vector3(21.2, deckY('qd', 21.2) + 0.2, 0);
-    const steeve = THREE.MathUtils.degToRad(28);
+    const steeve = THREE.MathUtils.degToRad(22);
     const dir = new THREE.Vector3(Math.cos(steeve), Math.sin(steeve), 0);
     const P = (d, up = 0) => heel.clone().addScaledVector(dir, d).add(new THREE.Vector3(-Math.sin(steeve) * up, Math.cos(steeve) * up, 0));
     const parts = [], black = [];
