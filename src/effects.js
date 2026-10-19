@@ -124,6 +124,21 @@ export class Effects {
     L.t = 0;
   }
 
+  // Spray thrown up where the bow meets the sea; world-space position and the ship's velocity.
+  spray(pos, out, vel, amount) {
+    const r = this.rand;
+    const n = Math.floor(amount + r());
+    for (let k = 0; k < n; k++) {
+      const v = out.clone().multiplyScalar(1.5 + r() * 3).add(new THREE.Vector3(0, 2.5 + r() * 3.5, 0)).add(vel.clone().multiplyScalar(0.6));
+      const g = 0.9 * (this.light ?? 1);
+      this.smoke.spawn({
+        pos: pos.clone().add(new THREE.Vector3((r() - 0.5) * 1.5, r() * 0.3, (r() - 0.5) * 0.6)), vel: v,
+        acc: new THREE.Vector3(0, -9.8, 0), drag: 0.8, age: 0, life: 0.9 + r() * 0.5, fadeIn: 0.05,
+        size0: 0.9 + r() * 0.6, size1: 3.5 + r() * 2.5, color: [g, g, g], alpha: 0.85, fadePow: 1.1,
+      });
+    }
+  }
+
   update(dt, camPos) {
     this.smoke.update(dt, camPos);
     this.flash.update(dt, null);
@@ -213,18 +228,21 @@ export class Wake {
       vertexShader: `attribute float alpha; varying float vA; varying vec2 vUv; varying vec3 vWorldP;
         ${SEA_HEIGHT_GLSL}
         #include <fog_pars_vertex>
+        varying float vWash;
         void main(){ vA = alpha; vUv = uv; vec3 p = position; p.y = seaHeight(p.xz) + 0.07;
+        // Foam thickens where a crest is pushed up against the hull.
+        vWash = smoothstep(-0.2, 0.7, p.y);
         vWorldP = (modelMatrix * vec4(p, 1.0)).xyz;
         vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
         gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
         }`,
-      fragmentShader: `uniform sampler2D uFoam; uniform float uScroll, uStrength, uLight; varying float vA; varying vec2 vUv; varying vec3 vWorldP;
+      fragmentShader: `uniform sampler2D uFoam; uniform float uScroll, uStrength, uLight; varying float vA; varying vec2 vUv; varying vec3 vWorldP; varying float vWash;
         ${HULL_MASK_GLSL}
         #include <fog_pars_fragment>
         void main(){ if (insideHull(vWorldP)) discard; float f = texture2D(uFoam, vUv + vec2(uScroll, 0.0)).a;
         float f2 = texture2D(uFoam, vUv * 0.6 + vec2(uScroll * 0.7, 0.31)).a;
-        gl_FragColor = vec4(vec3(0.95) * uLight, (f * 0.7 + f2 * 0.6) * vA * uStrength);
+        gl_FragColor = vec4(vec3(0.95) * uLight, (f * 0.7 + f2 * 0.6) * vA * clamp(uStrength + vWash * 0.6, 0.0, 1.2));
         #include <fog_fragment>
         }`,
       transparent: true, depthWrite: false, fog: true, side: THREE.DoubleSide,

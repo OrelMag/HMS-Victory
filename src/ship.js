@@ -257,6 +257,7 @@ export class Ship {
     }
     const W = windEffects(S, wn.dir, wn.str);
     this.W = W;
+    this.sea.setCaps(wn.str);
 
     // Wave motion and heel.
     const sea = this.sea;
@@ -342,6 +343,19 @@ export class Ship {
     this.flags.jack.mesh.visible = S.jack > 0.5;
     this.flags.jack.place(this.fittings.jackStaff, flagDir);
 
+    // Spray at the bow when she is going fast or pitching into a sea.
+    if (dt > 0 && W.speed > 0.5) {
+      const bowH = this.sea.heightAt(27.5, 0);
+      const pitch = Math.max(0, bowH - this.root.position.y + 0.2);
+      const amount = (W.speed / 6) * (0.6 + 3 * pitch) * dt * 60 * 0.9;
+      if (amount > 0.05) {
+        for (const side of [1, -1]) {
+          const p = this.body.localToWorld(new THREE.Vector3(27.2, 0.2, side * 1.6));
+          const out = new THREE.Vector3(0.5, 0, side).normalize().transformDirection(this.body.matrixWorld);
+          this.effects.spray(p, out, new THREE.Vector3(0, 0, 0), amount);
+        }
+      }
+    }
     this.effects.update(dt, this.scene.userData.camera?.position);
     this.wake.update(this.distance, W.speed);
     this.dirty = false;

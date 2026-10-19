@@ -112,6 +112,7 @@ function setTime(name) {
   env.setTime(name, sea);
   ship.wake.uniforms.uLight.value = env.light * (env.night > 0.9 ? 0.45 : 1);
   ship.effects.light = env.light;
+  sea.uniforms.uLight.value = env.light;
   ui?.setTime(name);
   if (typeof post !== 'undefined') tuneBloom();
 }

@@ -53,6 +53,30 @@ ${waveData.map((w) => `  y += ${w.A.toFixed(5)} * sin(${w.k.toFixed(5)} * (dot(s
   return y * uWaveScale;
 }`;
 
+// Tileable blotchy noise for breaking foam.
+function foamNoiseTexture() {
+  const S = 256, c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d');
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, S, S);
+  let seed = 5;
+  const r = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (let i = 0; i < 700; i++) {
+    const x = r() * S, y = r() * S, rad = 2 + r() * 14, a = 0.15 + r() * 0.35;
+    for (const [dx, dy] of [[0, 0], [S, 0], [-S, 0], [0, S], [0, -S]]) {
+      const grd = g.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, rad);
+      grd.addColorStop(0, `rgba(255,255,255,${a})`);
+      grd.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grd;
+      g.fillRect(x + dx - rad, y + dy - rad, rad * 2, rad * 2);
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
 export class Sea {
   constructor(envMap) {
     this.time = 0;
@@ -92,6 +116,9 @@ export class Sea {
       uOffset: { value: this.offset },
       uWaveScale: { value: 1 },
       uWaveRot: { value: new THREE.Vector2(1, 0) },
+      uCaps: { value: 0 },
+      uFoamTex: { value: foamNoiseTexture() },
+      uLight: { value: 1 },
       ...hullMaskUniforms(),
     };
     const U = this.uniforms;
@@ -103,7 +130,7 @@ export class Sea {
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', `#include <common>
 uniform float uTime; uniform vec2 uOffset; uniform float uWaveScale; uniform vec2 uWaveRot;
-varying float vCrest; varying vec3 vSeaWorld;
+varying float vCrest; varying vec3 vSeaWorld; varying float vSteep;
 void wave(vec2 p, vec2 d0, float k, float A, float Q, float c, inout vec3 disp, inout vec3 tx, inout vec3 tz) {
   vec2 d = vec2(uWaveRot.x * d0.x - uWaveRot.y * d0.y, uWaveRot.y * d0.x + uWaveRot.x * d0.y);
   float f = k * (dot(d, p) - c * uTime);
@@ -120,6 +147,8 @@ ${waveGLSL}
 disp *= fade;
 vec3 objectNormal = normalize(mix(vec3(0.0, 1.0, 0.0), cross(tz, tx), fade));
 vCrest = disp.y;
+// How sharply the Gerstner waves pinch at this point (the Jacobian of the horizontal motion).
+vSteep = 1.0 - (tx.x * tz.z - tx.z * tz.x);
 #ifdef USE_TANGENT
 vec3 objectTangent = vec3(tangent.xyz);
 #endif`)
@@ -127,14 +156,23 @@ vec3 objectTangent = vec3(tangent.xyz);
 vSeaWorld = transformed;`);
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>
-varying float vCrest; varying vec3 vSeaWorld;
+varying float vCrest; varying vec3 vSeaWorld; varying float vSteep;
+uniform float uCaps, uTime, uLight; uniform vec2 uOffset; uniform sampler2D uFoamTex;
 ${HULL_MASK_GLSL}`)
         .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
 if (insideHull(vSeaWorld)) discard;`)
         .replace('#include <color_fragment>', `#include <color_fragment>
 float crest = smoothstep(0.95, 1.6, vCrest);
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.2, 0.24), smoothstep(-0.8, 1.4, vCrest) * 0.22);
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.75, 0.8, 0.8), crest * 0.18);`);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.75, 0.8, 0.8), crest * 0.18);
+// Whitecaps: broken foam on the steepest crests, breaking up as it drifts.
+vec2 fp = (vSeaWorld.xz + uOffset) / 9.0;
+float n = texture2D(uFoamTex, fp).r * 0.6 + texture2D(uFoamTex, fp * 2.7 + uTime * 0.02).r * 0.4;
+// The pinch of the waves only reaches about 0.45, so caps start well below that in a strong wind.
+float capMask = smoothstep(0.55 - 0.5 * uCaps, 0.75 - 0.45 * uCaps, vSteep + vCrest * 0.2);
+float cap = capMask * smoothstep(0.3, 0.6, n) * (0.4 + 0.6 * uCaps) * step(0.01, uCaps);
+cap *= 1.0 - smoothstep(500.0, 1500.0, length(vSeaWorld.xz));
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92) * uLight, clamp(cap * 1.4, 0.0, 0.9));`);
     };
     // Normal map uv needs the scrolling offset too.
     this.normalMap = normalMap;
@@ -156,6 +194,11 @@ diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.75, 0.8, 0.8), crest * 0.18);`);
   setScale(s) {
     this.scale = s;
     this.uniforms.uWaveScale.value = s;
+  }
+
+  // Whitecaps: none in light airs, scattered in a fresh breeze, many near a gale.
+  setCaps(strength) {
+    this.uniforms.uCaps.value = Math.max(0, Math.min(1, (strength - 0.35) / 0.6));
   }
 
   // Turn the wave field so the main swell runs toward world angle `a` (radians, from +x toward +z).
