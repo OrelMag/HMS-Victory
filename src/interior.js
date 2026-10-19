@@ -1,7 +1,7 @@
 // Internal structure: decks with hatchways, coamings, ladders, beams, pillars, ballast.
 import * as THREE from 'three';
 import {
-  DECK, HATCHES, deckY, halfBreadth, xStern, xBow, QD_FWD, FC_AFT, POOP_FWD, lerp,
+  DECK, HATCHES, COMPANIONS, ladderwayLadder, deckY, halfBreadth, xStern, xBow, QD_FWD, FC_AFT, POOP_FWD, lerp,
 } from './config.js';
 import { merge, beamBetween, cylBetween } from './geom.js';
 import { mats } from './materials.js';
@@ -56,6 +56,22 @@ function holesFor(name) {
   });
 }
 
+// Inclined ladder running athwartships, from (zFoot, yBottom) up to (zTop, yTop) at x.
+function ladderZ(x, zFoot, yBottom, zTop, yTop, width = 0.8) {
+  const parts = [];
+  for (const s of [1, -1]) {
+    parts.push(beamBetween(new THREE.Vector3(x + s * width / 2, yBottom, zFoot), new THREE.Vector3(x + s * width / 2, yTop, zTop), 0.07, 0.22, new THREE.Vector3(1, 0, 0)));
+  }
+  const steps = Math.round((yTop - yBottom) / 0.24);
+  for (let k = 1; k < steps; k++) {
+    const t = k / steps;
+    const g = new THREE.BoxGeometry(width, 0.05, 0.22);
+    g.translate(x, lerp(yBottom, yTop, t), lerp(zFoot, zTop, t));
+    parts.push(g);
+  }
+  return parts;
+}
+
 // Inclined ladder from (x, yBottom) up to (x + run, yTop), centred on z.
 function ladder(x, z, yBottom, yTop, run, width = 0.8) {
   const parts = [];
@@ -103,15 +119,13 @@ export function buildInterior() {
   for (let i = 0; i < stack.length - 1; i++) {
     for (const h of HATCHES.filter((q) => q.ladder)) {
       if (stack[i] === 'orlop' && !(h.x > -14 && h.x < 15)) continue;
-      const top = deckY(stack[i + 1], h.x);
-      const bottom = deckY(stack[i], h.x - 1.4);
-      ladders.push(...ladder(h.x - h.w / 2 - 1.2, 0, bottom, top, h.w * 0.55));
+      const L = ladderwayLadder(h, i % 2 ? -1 : 1);
+      ladders.push(...ladderZ(L.x, L.zFoot, deckY(stack[i], h.x) + 0.05, L.zTop, deckY(stack[i + 1], h.x)));
     }
   }
   // Companion ladders up to the quarterdeck and forecastle at their breaks.
-  for (const s of [1, -1]) {
-    ladders.push(...ladder(QD_FWD + 2.2, s * 2.6, deckY('upper', QD_FWD + 2.2), deckY('qd', QD_FWD), -2.0, 0.7));
-    ladders.push(...ladder(FC_AFT - 2.2, s * 2.6, deckY('upper', FC_AFT - 2.2), deckY('qd', FC_AFT), 2.0, 0.7));
+  for (const c of COMPANIONS) for (const s of [1, -1]) {
+    ladders.push(...ladder(c.x, s * c.z, deckY(c.from, c.x), deckY(c.to, c.x + c.run), c.run, 0.7));
   }
 
   const deckMesh = new THREE.Mesh(merge(deckParts), M.deck);

@@ -7,7 +7,8 @@ import { UI } from './ui.js';
 import { findClashes } from './clash.js';
 import { Cutaway, LEVELS } from './cutaway.js';
 import { Rooms } from './rooms.js';
-import { DECK_NAMES } from './roomData.js';
+import { DECK_NAMES, ROOMS } from './roomData.js';
+import { IsoMode } from './iso.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -125,9 +126,16 @@ const ui = params.get('ui') === '0' ? null : new UI({
   onLabels: (on) => rooms.setEnabled(on),
   onCut: (f) => cut.setCut(f),
   onXray: (on) => cut.setXray(on),
+  onMode: (m) => setMode(m),
   poses: ship.poseNames(),
   views: Object.keys(VIEWS),
 });
+const iso = new IsoMode({ ship, cut, rooms, renderer, ui });
+function setMode(m) {
+  if (m === 'sailor' && !iso.active) { iso.enter(); controls.enabled = false; }
+  if (m === 'free' && iso.active) { iso.exit(); controls.enabled = true; }
+}
+ui?.setMode('free');
 
 ship.setPose(params.get('pose') || 'sail', true);
 {
@@ -147,6 +155,12 @@ if (params.has('level')) { cut.setLevel(params.get('level')); rooms.setLevel(par
 if (params.has('cut')) cut.setCut(+params.get('cut'));
 if (params.has('xray')) cut.setXray(true);
 if (params.has('fire')) setTimeout(() => ship.fireBroadside(), 300);
+if (params.get('mode') === 'sailor') {
+  if (params.has('sx')) { iso.sailor.x = +params.get('sx'); iso.sailor.z = +params.get('sz'); iso.sailor.level = params.get('sl') || 'qd'; }
+  if (params.has('zoom')) iso.zoom = +params.get('zoom');
+  setMode('sailor');
+  ui?.setMode('sailor');
+}
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -173,12 +187,13 @@ function frame() {
     controls.target.lerpVectors(camTween.t0, camTween.t1, e);
     if (camTween.k >= 1) camTween = null;
   }
-  controls.update();
-  renderer.render(scene, camera);
-  rooms.render(scene, camera, window.innerWidth, window.innerHeight);
+  let cam = camera;
+  if (iso.active) { iso.update(fixedT != null ? 1 / 30 : dt); cam = iso.camera; } else controls.update();
+  renderer.render(scene, cam);
+  rooms.render(scene, cam, window.innerWidth, window.innerHeight);
   frames++;
   if (frames === 3) window.__ready = true;
   requestAnimationFrame(frame);
 }
 frame();
-window.__victory = { ship, camera, controls, scene, setView, cut, clashes: () => findClashes(ship) };
+window.__victory = { ship, camera, controls, scene, setView, cut, iso, setMode, ROOMS, clashes: () => findClashes(ship) };

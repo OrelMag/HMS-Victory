@@ -41,6 +41,11 @@ built with Three.js. Opens as a static page, no install needed.
 - **Orlop**: surgeon's cockpit, midshipmen's berths, cable tiers, storerooms
 - **Hold**: casks, bread and spirit rooms, shot locker, ballast, pumps, powder magazines
 
+### Sailor mode (isometric)
+Press **Sailor (isometric)**. WASD or arrows to walk, Shift to run, click to walk to a spot,
+walk into a ladder to climb it, Q / E to turn the view, scroll to zoom. The decks above him are
+peeled away automatically, and the room labels for his deck appear.
+
 ### View modes
 - **Isometric character mode** (Desperados-style): steer a sailor around the ship; decks above
   and the near hull side cut away automatically when he goes below, blocking walls fade
@@ -61,6 +66,8 @@ Open `index.html` in a browser (the built bundle is in `dist/`). To rebuild afte
 Tools (need Microsoft Edge, or set `SHOT_CHANNEL=chrome`):
 - `node tools/shot.mjs <name> "<query>"`: screenshot to `screenshots/tmp/`, e.g.
   `node tools/shot.mjs bow "view=bow&pose=action&wind=90&windStr=0.8"`
+- `node tools/walk.mjs`: walks the sailor up and down ladders, through doorways and into guns,
+  and flood-fills every deck to check each room can be reached on foot (normal and cleared).
 - `node tools/clash.mjs`: checks that no rope or spar passes through a sail, and no sail through
   another, in every pose, across wind directions and strengths, and through every pose change.
 
@@ -68,4 +75,4 @@ Tools (need Microsoft Edge, or set `SHOT_CHANNEL=chrome`):
 1. Exterior and poses (done)
 2. Deck structure and room layout (done: decks, hatchways, ladders, beams, bulkheads, 46 labelled rooms and features with notes)
 3. Interior furnishing (done)
-4. Isometric character mode and polish
+4. Isometric character mode (done)

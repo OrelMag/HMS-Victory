@@ -61,7 +61,7 @@ const PROPS = {
   // Cot: a framed canvas bed hung from the beams (top at y = 0).
   cot: () => merge([box(1.9, 0.35, 0.7, 0, -0.75, 0, '#cfc3a4'), box(1.95, 0.05, 0.75, 0, -0.56, 0, '#6b4a2e'),
     ...[[-0.9, -0.3], [0.9, -0.3], [-0.9, 0.3], [0.9, 0.3]].map(([x, z]) => paint(new THREE.CylinderGeometry(0.01, 0.01, 0.6).translate(x, -0.28, z), '#8a7556'))]),
-  coil: () => merge([0, 1, 2, 3].map((k) => paint(new THREE.TorusGeometry(1.15 - k * 0.12, 0.13, 6, 24).rotateX(Math.PI / 2).translate(0, 0.13 + k * 0.24, 0), '#6b5a40'))),
+  coil: () => merge([0, 1, 2, 3].map((k) => paint(new THREE.TorusGeometry(0.95 - k * 0.1, 0.12, 6, 24).rotateX(Math.PI / 2).translate(0, 0.13 + k * 0.24, 0), '#6b5a40'))),
   ropeCoil: () => merge([0, 1, 2].map((k) => paint(new THREE.TorusGeometry(0.4, 0.07, 5, 16).rotateX(Math.PI / 2).translate(0, 0.07 + k * 0.13, 0), '#8a7556'))),
   sailBundle: () => paint(new THREE.CapsuleGeometry(0.3, 2.4, 4, 8).rotateZ(Math.PI / 2).translate(0, 0.3, 0), '#d0c5a8'),
   shotPile: () => {
@@ -114,7 +114,7 @@ class Placer {
 
 const halfIn = (x, y) => halfBreadth(x, y + 0.6) - 0.15;
 // Height of a deck surface at (x, z), including the camber.
-function floor(deck, x, z) {
+export function floor(deck, x, z) {
   if (deck === 'hold') return -5.3;
   const y = deckY(deck, x);
   const w = Math.max(0.5, halfBreadth(x, y + 0.25) - 0.06);
@@ -197,7 +197,7 @@ export function buildFurnishing(fittings) {
   // Officers' cabins: a cot and a sea chest each.
   for (const [x, z] of [[-24.4, 5.6], [-21.2, 5.6], [-24.9, -5.6], [-22.4, -5.6], [-19.6, -5.6], [-17.1, -5.6]]) {
     hang('cot', 'upper', x, z, 0);
-    put('chest', 'middle', x, z * 0.72, Math.PI / 2);
+    put('chest', 'middle', x + 0.8, z * 0.8, 0);
   }
   put('desk', 'middle', -24.4, 4.1, Math.PI); put('shelf', 'middle', -17.6, 6.4, 0);
 
@@ -208,7 +208,7 @@ export function buildFurnishing(fittings) {
   put('settee', 'upper', -28.1, -2.5, Math.PI / 2);
   put('globe', 'upper', -24.4, 4.4);
   // Dining cabin: the long table where Nelson dined with his captains.
-  for (const x of [-22.6, -21.0, -19.4]) {
+  for (const x of [-21.6, -20.0]) {
     put('table', 'upper', x, 0, 0);
     for (const z of [-0.8, 0.8]) for (const dx of [-0.4, 0.4]) put('chair', 'upper', x + dx, z, z > 0 ? Math.PI : 0);
   }
@@ -222,8 +222,8 @@ export function buildFurnishing(fittings) {
   put('table', 'qd', -26.0, 0, Math.PI / 2);
   for (const z of [-0.9, 0.9]) put('chair', 'qd', -26.0, z, z > 0 ? Math.PI : 0);
   put('desk', 'qd', -27.8, 2.8, Math.PI / 2);
-  put('table', 'qd', -21.0, -3.6, 0);
-  for (const dx of [-0.5, 0.5]) for (const z of [-4.4, -2.8]) put('chair', 'qd', -21.0 + dx, z, z > -3.6 ? Math.PI : 0);
+  put('table', 'qd', -21.0, -4.0, 0);
+  for (const dx of [-0.5, 0.5]) for (const z of [-4.8, -3.2]) put('chair', 'qd', -21.0 + dx, z, z > -4.0 ? Math.PI : 0);
   hang('cot', 'poop', -21.4, 3.8, 0);
   put('desk', 'qd', -15.6, -4.6, 0); put('chest', 'qd', -16.8, -5.6, 0);
   put('desk', 'qd', -15.6, 4.6, Math.PI); put('chest', 'qd', -16.8, 5.6, 0);
@@ -237,7 +237,7 @@ export function buildFurnishing(fittings) {
   for (const x of [-15.6, -12.4]) put('chest', 'orlop', x, -5.4, 0);
   hang('lantern', 'lower', -13.0, -3.6);
   // Storerooms.
-  for (let x = -26.2; x < -23.8; x += 0.9) for (const z of [-3.5, -1.2, 1.2, 3.5]) put('bin', 'orlop', x, z, 0);
+  for (const x of [-26.4, -25.2]) for (const z of [-3.5, -1.2, 1.2, 3.5]) put('bin', 'orlop', x, z, 0);
   for (const [x, z] of [[-22.8, -4.0], [-21.6, -4.6], [-22.0, -2.6], [-21.0, -3.2]]) put('sack', 'orlop', x, z, x);
   put('hogshead', 'orlop', -22.4, -5.6, 0); put('hogshead', 'orlop', -21.0, -5.8, 0);
   for (const [x, z] of [[-19.6, -4.0], [-18.8, -4.6], [-19.4, -2.4]]) put('chest', 'orlop', x, z, 0);
@@ -245,7 +245,7 @@ export function buildFurnishing(fittings) {
   hang('cot', 'lower', -19.7, 4.6, 0); put('chest', 'orlop', -19.7, 2.6, 0);
   for (let i = 0; i < 6; i++) put('powder', 'orlop', -22.9 + (i % 3) * 0.48, -0.5 + Math.floor(i / 3) * 1.0);
   // Cable tiers: the great cables coiled down both sides.
-  for (const x of [2.4, 5.4, 8.4, 11.0]) for (const side of [1, -1]) put('coil', 'orlop', x, side * 4.3, x);
+  for (const x of [2.4, 6.0, 9.6]) for (const side of [1, -1]) put('coil', 'orlop', x, side * 4.6, x);
   // Boatswain's store, carpenter's workshop, sail room, rope and block room.
   for (const [x, z] of [[14.8, 3.2], [16.4, 4.2], [15.4, 5.0]]) put('ropeCoil', 'orlop', x, z, 0);
   for (const [x, z] of [[16.8, 2.6], [17.0, 3.0], [16.6, 3.4]]) put('block', 'orlop', x, z, x);
@@ -253,7 +253,7 @@ export function buildFurnishing(fittings) {
   for (let k = 0; k < 4; k++) put('sailBundle', 'orlop', 19.0, 1.2 + k * 0.65, 0);
   for (const [x, z] of [[18.4, -2.6], [19.8, -3.4], [18.8, -4.2]]) put('ropeCoil', 'orlop', x, z, 0);
   for (const [x, z] of [[20.0, -1.4], [19.4, -1.2]]) put('block', 'orlop', x, z, 0);
-  for (let i = 0; i < 9; i++) put('powder', 'orlop', 21.2 + (i % 3) * 0.5, -0.8 + Math.floor(i / 3) * 0.6);
+  for (const x of [21.1, 21.6]) for (const z of [-1.3, 1.3]) put('powder', 'orlop', x, z);
 
   // ---- Hold ----
   // Water casks in tiers on the shingle ballast, fore and aft.

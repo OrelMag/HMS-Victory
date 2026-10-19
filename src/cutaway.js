@@ -13,6 +13,8 @@ export const LEVELS = {
   orlop: DECK.lower - 0.52,
   hold: DECK.orlop - 0.52,
 };
+// Used by the sailor view only (not a button): everything above head height on the poop.
+export const SAILOR_LEVELS = { poop: DECK.poop + 2.1 };
 
 export class Cutaway {
   constructor(ship, sun) {
@@ -79,7 +81,8 @@ vCutPos = (uShipInv * modelMatrix * cutP).xyz;`);
 
   setLevel(name) {
     this.level = name;
-    this.uniforms.uCutY.value = Number.isFinite(LEVELS[name]) ? LEVELS[name] : 1e5;
+    const y = LEVELS[name] ?? SAILOR_LEVELS[name];
+    this.uniforms.uCutY.value = Number.isFinite(y) ? y : 1e5;
     this.shellCutY.value = Math.max(this.uniforms.uCutY.value, 0.6);
     this.refresh();
   }

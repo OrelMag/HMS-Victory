@@ -17,10 +17,13 @@ export function windName(dir, str) {
 }
 
 export class UI {
-  constructor({ onPose, onView, onFire, onWind, wind, poses, views, levels, onLevel, onCut, onXray, onLabels }) {
+  constructor({ onPose, onView, onFire, onWind, wind, poses, views, levels, onLevel, onCut, onXray, onLabels, onMode }) {
     const el = document.getElementById('ui');
     el.innerHTML = `
       <h1>HMS Victory <span>1805</span></h1>
+      <div class="group"><div class="label">Mode</div><div class="row" id="modes"></div>
+        <div class="hint" id="sailorHint" style="display:none">WASD or arrows to walk, Shift to run, click to walk there.
+        Walk into a ladder to climb. Q / E turn the view, scroll to zoom.</div></div>
       <div class="group"><div class="label">Pose</div><div class="row" id="poses"></div></div>
       <div class="group" id="fireGroup"><button id="fire" class="accent">Fire broadside</button></div>
       <div class="group"><div class="label">Wind</div>
@@ -34,6 +37,16 @@ export class UI {
         <label class="check"><input id="labels" type="checkbox" checked> Room labels</label></div>
       <div class="group"><div class="label">View</div><div class="row" id="views"></div></div>
       <div class="hint">Drag to orbit · scroll to zoom · right-drag to pan</div>`;
+    this.modeButtons = {};
+    const me = el.querySelector('#modes');
+    for (const [m, label] of [['free', 'Free camera'], ['sailor', 'Sailor (isometric)']]) {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.onclick = () => { onMode(m); this.setMode(m); };
+      me.appendChild(b);
+      this.modeButtons[m] = b;
+    }
+    this.el = el;
     this.poseButtons = {};
     const pe = el.querySelector('#poses');
     for (const p of poses) {
@@ -81,6 +94,15 @@ export class UI {
       wt.textContent = windName(dir, str);
       wh.textContent = '';
     };
+  }
+
+  setMode(m) {
+    for (const [k, b] of Object.entries(this.modeButtons)) b.classList.toggle('active', k === m);
+    this.el.querySelector('#sailorHint').style.display = m === 'sailor' ? '' : 'none';
+    this.el.querySelector('#levels').style.opacity = m === 'sailor' ? 0.45 : 1;
+    this.el.querySelector('#levels').style.pointerEvents = m === 'sailor' ? 'none' : '';
+    this.el.querySelector('#views').style.opacity = m === 'sailor' ? 0.45 : 1;
+    this.el.querySelector('#views').style.pointerEvents = m === 'sailor' ? 'none' : '';
   }
 
   setLevel(l) {

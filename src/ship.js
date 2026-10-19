@@ -137,6 +137,7 @@ export class Ship {
     // Things that are struck down when clearing for action (rooms register here too).
     this.clearables = [{ setCleared: (c) => this.furnishing.userData.setCleared(c) }];
     this.isCleared = null;
+    this.layoutVersion = 0; // bumps whenever what stands on the decks changes
     // Sails press against (and drape round) the standing rigging of their own mast.
     for (const s of this.sails.square) {
       const c = this.rigging.colliders[s.mastName];
@@ -226,7 +227,7 @@ export class Ship {
         const local = Math.min(1, Math.max(0, (tw.k - w0) / (w1 - w0)));
         this.cur[key] = a + (b - a) * ease(local);
       }
-      if (tw.k >= 1) this.tween = null;
+      if (tw.k >= 1) { this.tween = null; this.layoutVersion++; }
       this.dirty = true;
     }
     const S = this.cur;
@@ -303,6 +304,7 @@ export class Ship {
     if (cleared !== this.isCleared) {
       this.isCleared = cleared;
       for (const c of this.clearables) c.setCleared(cleared);
+      this.layoutVersion++;
     }
 
     // Flags stream along the apparent wind.

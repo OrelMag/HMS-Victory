@@ -48,7 +48,7 @@ function wall(deck, a, b, door, parts) {
   const yTop = (x) => (above ? deckY(above, x) - 0.33 : deckY(deck, x) + 2.0);
   const segs = [];
   if (door != null) {
-    const d0 = Math.max(0, door - 0.45), d1 = Math.min(len, door + 0.45);
+    const d0 = Math.max(0, door - 0.5), d1 = Math.min(len, door + 0.5);
     if (d0 > 0.05) segs.push([0, d0, 0]);
     if (d1 < len - 0.05) segs.push([d1, len, 0]);
     segs.push([d0, d1, 1.75]); // lintel over the doorway
@@ -75,6 +75,29 @@ const inHull = (deck, x, z) => {
   return Math.max(-w, Math.min(w, z));
 };
 
+// Every bulkhead as a segment on its deck, with its doorway (offset along it, or null).
+export function roomWallSegments() {
+  const out = [];
+  for (const r of ROOMS) {
+    for (const w of r.walls || []) {
+      const [side, door] = Array.isArray(w) ? w : [w, null];
+      let a, b, shift = 0;
+      if (side === 'fore' || side === 'aft') {
+        const x = side === 'fore' ? r.x1 : r.x0;
+        a = { x, z: inHull(r.deck, x, r.z0) };
+        b = { x, z: inHull(r.deck, x, r.z1) };
+        shift = a.z - r.z0; // doorway offsets are measured from the room's edge, not the trimmed wall end
+      } else {
+        const z = side === 'stbd' ? r.z1 : r.z0;
+        a = { x: r.x0, z: inHull(r.deck, r.x0, z) };
+        b = { x: r.x1, z: inHull(r.deck, r.x1, z) };
+      }
+      out.push({ deck: r.deck, a, b, door: door == null ? null : door - shift });
+    }
+  }
+  return out;
+}
+
 export class Rooms {
   constructor(parent, container, onPick) {
     this.group = new THREE.Group();
@@ -82,22 +105,9 @@ export class Rooms {
     parent.add(this.group);
     // Partitions on the gun decks come down when the ship clears for action; the orlop and hold stay.
     const painted = [], bareGun = [], bare = [];
-    for (const r of ROOMS) {
-      const parts = r.deck === 'lower' ? bareGun : (r.deck === 'orlop' || r.deck === 'hold') ? bare : painted;
-      for (const w of r.walls || []) {
-        const [side, door] = Array.isArray(w) ? w : [w, null];
-        let a, b;
-        if (side === 'fore' || side === 'aft') {
-          const x = side === 'fore' ? r.x1 : r.x0;
-          a = { x, z: inHull(r.deck, x, r.z0) };
-          b = { x, z: inHull(r.deck, x, r.z1) };
-        } else {
-          const z = side === 'stbd' ? r.z1 : r.z0;
-          a = { x: r.x0, z: inHull(r.deck, r.x0, z) };
-          b = { x: r.x1, z: inHull(r.deck, r.x1, z) };
-        }
-        wall(r.deck, a, b, door, parts);
-      }
+    for (const s of roomWallSegments()) {
+      const parts = s.deck === 'lower' ? bareGun : (s.deck === 'orlop' || s.deck === 'hold') ? bare : painted;
+      wall(s.deck, s.a, s.b, s.door, parts);
     }
     const plank = plankTexture();
     this.clearable = [];

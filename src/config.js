@@ -139,6 +139,23 @@ export const HATCHES = [
   { name: 'after ladderway', x: -12.2, w: 2.0, d: 1.6, ladder: true },
 ];
 
+// Ladders through the ladderways run athwartships: the foot stands on the deck below, to
+// starboard of the hatch, and the ladder rises into the hatch opening of the deck above.
+// Ladders alternate sides from deck to deck (side = +1 starboard, -1 port), so stepping off one
+// never lands you on the foot of the next.
+export function ladderwayLadder(h, side = 1) {
+  return { x: h.x, zFoot: side * (h.d / 2 + 1.0), zTop: side * (h.d / 2 - 0.05), side };
+}
+
+// Companion ladders at the deck breaks: foot at x on the lower deck, rising `run` metres (sign =
+// direction) to the edge of the deck above; one each side at +/-z.
+export const COMPANIONS = [
+  { from: 'upper', to: 'qd', x: QD_FWD + 2.2, run: -2.0, z: 2.6 },
+  { from: 'upper', to: 'qd', x: FC_AFT - 2.2, run: 2.0, z: 2.6 },
+  { from: 'qd', to: 'poop', x: POOP_FWD + 2.3, run: -2.0, z: 3.4 },
+];
+export const GANGWAY = 2.5; // width of the gangways along the sides of the waist
+
 // Paint bands (heights relative to the sheer line).
 export const BANDS = TIERS.slice(0, 3).map((t) => {
   const c = DECK[t.deck] + t.cy;

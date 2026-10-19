@@ -166,28 +166,37 @@ export function buildHull() {
   edgeMat.side = THREE.DoubleSide;
   group.add(new THREE.Mesh(edgeGeo, edgeMat));
 
-  // Poop front bulkhead with the captain's cabin windows and doors.
+  // The captain's bulkhead under the poop, with windows and a door in the middle. It stands
+  // well aft of the poop's forward edge: the wheel is under the overhang, between the master's
+  // and secretary's cabins.
   {
-    const x = POOP_FWD + 0.05;
-    const y0 = deckY('qd', x), y1 = deckY('poop', x) + 0.05;
+    const x = POOP_FWD - 4.2;
+    const y0 = deckY('qd', x), y1 = deckY('poop', x) - 0.3;
     const hw = halfBreadth(x, y1) - BULWARK;
     const t = windowStripTexture();
-    t.repeat.set(hw * 2 / 3.2, 1);
-    const m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.6 });
-    const g = gridGeometry(2, 2, (i, j) => [x, j ? y1 : y0, i ? -hw : hw], (i, j) => [i, j]);
-    group.add(new THREE.Mesh(g, m));
+    t.repeat.set((hw - 0.5) / 3.2, 1);
+    const m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.6, side: THREE.DoubleSide });
+    for (const [za, zb] of [[hw, 0.5], [-0.5, -hw]]) {
+      group.add(new THREE.Mesh(gridGeometry(2, 2, (i, j) => [x, j ? y1 : y0, i ? zb : za], (i, j) => [i, j]), m));
+    }
+    const lintel = beamBetween(new THREE.Vector3(x, y0 + 1.95, -0.5), new THREE.Vector3(x, y0 + 1.95, 0.5), 0.1, 0.1);
+    group.add(new THREE.Mesh(lintel, M.darkWood));
   }
 
   // Breast rails along the deck breaks.
   const rails = [];
-  const railAcross = (x, deckName, h = 1.0) => {
+  // Breast rails across the deck breaks, with openings at the heads of the companion ladders.
+  const railAcross = (x, deckName, inset, gapZ, h = 1.0) => {
     const y = deckY(deckName, x) + 0.1;
-    const hw = halfBreadth(x, y) - BULWARK - 0.1;
-    rails.push(balustrade(new THREE.Vector3(x, y, -hw), new THREE.Vector3(x, y, hw), h));
+    const hw = halfBreadth(x, y) - BULWARK - 0.1 - inset;
+    const cuts = [-hw, -gapZ - 0.45, -gapZ + 0.45, gapZ - 0.45, gapZ + 0.45, hw];
+    for (let k = 0; k < cuts.length; k += 2) {
+      rails.push(balustrade(new THREE.Vector3(x, y, cuts[k]), new THREE.Vector3(x, y, cuts[k + 1]), h));
+    }
   };
-  railAcross(QD_FWD - 0.1, 'qd');
-  railAcross(FC_AFT + 0.1, 'qd');
-  railAcross(POOP_FWD - 0.1, 'poop');
+  railAcross(QD_FWD - 0.1, 'qd', gw, 2.6);
+  railAcross(FC_AFT + 0.1, 'qd', gw, 2.6);
+  railAcross(POOP_FWD - 0.1, 'poop', 0, 3.4);
   // Gangway inner rails.
   for (const s of [1, -1]) {
     const pts = [];
