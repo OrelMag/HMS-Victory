@@ -66,6 +66,6 @@ Tools (need Microsoft Edge, or set `SHOT_CHANNEL=chrome`):
 
 ## Phases
 1. Exterior and poses (done)
-2. Deck structure and room layout (done: decks, hatchways, ladders, beams, bulkheads, 40 labelled rooms and features with notes)
+2. Deck structure and room layout (done: decks, hatchways, ladders, beams, bulkheads, 46 labelled rooms and features with notes)
 3. Interior furnishing
 4. Isometric character mode and polish
