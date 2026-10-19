@@ -147,8 +147,30 @@ export class Rig {
       const t = i / 16 * 2 - 1;
       pts.push(new THREE.Vector3(-0.15, -r - 0.9 * (1 - t * t) - 0.15, t * L * 0.47));
     }
-    const fr = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 32, 0.03, 4), M.rope);
-    g.add(fr);
+    const ropeParts = [new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 32, 0.03, 4)];
+    // Stirrups holding up the footrope.
+    for (let z = 2.2; z < L * 0.45; z += 2.4) {
+      for (const sd of [1, -1]) {
+        const t = (sd * z) / (L * 0.47);
+        const yb = -r - 0.9 * (1 - t * t) - 0.15;
+        ropeParts.push(cylBetween(new THREE.Vector3(-0.1, -r * 0.6, sd * z), new THREE.Vector3(-0.15, yb, sd * z), 0.02, 0.02, 4));
+      }
+    }
+    g.add(new THREE.Mesh(merge(ropeParts), M.rope));
+    // Studding-sail booms on the fore and main lower and topsail yards.
+    if (mast.name !== 'mizzen' && (spec.name === 'course' || spec.name === 'topsail')) {
+      const booms = [];
+      const br = 0.09 * s * (spec.name === 'course' ? 1.2 : 1);
+      for (const sd of [1, -1]) {
+        booms.push(cylBetween(new THREE.Vector3(r * 0.8, r * 0.75, sd * L * 0.2), new THREE.Vector3(r * 0.8, r * 0.75, sd * (L * 0.5 + 2.6 * s)), br, br * 0.8, 8));
+        for (const zz of [L * 0.22, L * 0.48]) {
+          booms.push(new THREE.TorusGeometry(br + 0.04, 0.025, 4, 10).rotateY(Math.PI / 2).translate(r * 0.8, r * 0.75, sd * zz));
+        }
+      }
+      const bm = new THREE.Mesh(merge(booms), M.spar);
+      bm.castShadow = true;
+      g.add(bm);
+    }
     mast.group.add(g);
     return { name: spec.name, group: g, L, r, ySet, yLow, mast, headKey: spec.head, hoist: 1, brace: 0 };
   }

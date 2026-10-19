@@ -98,11 +98,14 @@ const ui = params.get('ui') === '0' ? null : new UI({
   onPose: (p) => ship.setPose(p),
   onView: (v) => setView(v),
   onFire: () => ship.fireBroadside(),
+  onWind: (dir, str) => ship.setWind(dir, str),
+  wind: { dir: +(params.get('wind') ?? -135), str: +(params.get('windStr') ?? 0.6) },
   poses: ship.poseNames(),
   views: Object.keys(VIEWS),
 });
 
 ship.setPose(params.get('pose') || 'sail', true);
+ship.setWind(+(params.get('wind') ?? -135), +(params.get('windStr') ?? 0.6), true);
 setView(params.get('view') || 'quarter', true);
 if (params.has('cam')) {
   const c = params.get('cam').split(',').map(Number);
@@ -110,6 +113,7 @@ if (params.has('cam')) {
   controls.target.set(c[3], c[4], c[5]);
 }
 ui?.setPose(ship.pose);
+if (params.has('fire')) setTimeout(() => ship.fireBroadside(), 300);
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;

@@ -300,6 +300,26 @@ export function sailTexture() {
   return toTexture(c, { repeat: true });
 }
 
+// Topsail cloth with three reef bands near the head (u tiles every 2 m, v spans the sail).
+export function reefSailTexture() {
+  const W = 256, H = 1024, c = canvas(W, H), g = c.getContext('2d');
+  g.drawImage(sailTexture().image, 0, 0, W, 512);
+  g.drawImage(sailTexture().image, 0, 512, W, 512);
+  for (const f of [0.12, 0.24, 0.36]) {
+    const y = f * H;
+    g.fillStyle = 'rgba(150,130,95,0.55)';
+    g.fillRect(0, y - 7, W, 14);
+    g.fillStyle = 'rgba(110,90,60,0.6)';
+    g.fillRect(0, y - 8, W, 2);
+    g.fillRect(0, y + 6, W, 2);
+    for (let x = 10; x < W; x += 21) {
+      g.fillStyle = 'rgba(70,55,35,0.85)';
+      g.fillRect(x, y - 3, 3, 22);
+    }
+  }
+  return toTexture(c, { repeat: true });
+}
+
 // ---------- Flags ----------
 function drawUnion(g, x, y, w, h) {
   g.fillStyle = '#1f2f6b';

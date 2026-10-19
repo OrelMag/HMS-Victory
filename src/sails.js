@@ -5,6 +5,7 @@ import { mats } from './materials.js';
 import { deckY, railTop } from './config.js';
 
 const _m = new THREE.Matrix4();
+const _m2 = new THREE.Matrix4();
 const _v = new THREE.Vector3();
 
 // Transform a point from `from` object space into `to` object space (both under the same root).
@@ -56,7 +57,7 @@ export class SquareSail {
     this.set = -1;
   }
 
-  update(set, wind, time) {
+  update(set, wind, time, luff = 0) {
     const NU = this.NU, NV = this.NV, y = this.yard;
     const show = set > 0.015;
     this.mesh.visible = show;
@@ -99,14 +100,44 @@ export class SquareSail {
         x += belly * b * (1 + ripple * Math.sin(u * 9 + time * 3));
         // Gathering wrinkles while clewing up.
         x += (1 - set) * 0.25 * Math.sin(u * Math.PI * 14) * v;
+        // Shivering when the wind is too far forward to fill her.
+        if (luff > 0) x += luff * 0.3 * (0.5 + 0.5 * Math.sin(time * 9 + u * 7 + v * 4)) * Math.sin(Math.PI * u) * v;
         pos[k * 3] = x; pos[k * 3 + 1] = py; pos[k * 3 + 2] = z;
         uv[k * 2] = z / 2;
-        uv[k * 2 + 1] = py / 4;
+        uv[k * 2 + 1] = this.reef ? 1 - v : py / 4;
       }
     }
+    if (this.colliders?.length) this.drape(pos);
     this.geo.attributes.position.needsUpdate = true;
     this.geo.attributes.uv.needsUpdate = true;
     this.geo.computeVertexNormals();
+  }
+
+  // Canvas cannot pass behind the shrouds and backstays: where it would, it is pushed
+  // forward so it lies against them, fading out over a short distance inboard.
+  drape(pos) {
+    const toSpace = _m.copy(this.space.matrixWorld).invert().multiply(this.yard.group.matrixWorld);
+    const back = _m2.copy(toSpace).invert();
+    const P = _v;
+    const margin = 0.35, ramp = 2.0;
+    for (let k = 0; k < pos.length; k += 3) {
+      P.set(pos[k], pos[k + 1], pos[k + 2]).applyMatrix4(toSpace);
+      let need = -Infinity;
+      for (const [a, b] of this.colliders) {
+        if (P.y < Math.min(a.y, b.y) || P.y > Math.max(a.y, b.y) || Math.sign(P.z) !== Math.sign(a.z)) continue;
+        const t = (P.y - a.y) / (b.y - a.y);
+        const sx = a.x + (b.x - a.x) * t, sz = Math.abs(a.z + (b.z - a.z) * t);
+        const w = Math.min(1, Math.max(0, (Math.abs(P.z) - (sz - ramp)) / ramp));
+        if (w <= 0) continue;
+        const target = sx + margin;
+        if (P.x < target) need = Math.max(need, P.x + (target - P.x) * w * w * (3 - 2 * w));
+      }
+      if (need > P.x) {
+        P.x = need;
+        P.applyMatrix4(back);
+        pos[k] = P.x; pos[k + 1] = P.y; pos[k + 2] = P.z;
+      }
+    }
   }
 }
 
@@ -128,7 +159,11 @@ export class StaySail {
     this.mesh.visible = set > 0.015;
     if (!this.mesh.visible) return;
     const T = this.tack, Hd = T.clone().lerp(this.head, set);
-    const C = T.clone().lerp(this.clew, 0.15 + 0.85 * set);
+    // Clew goes to whichever side is leeward.
+    const clew = this.clew.clone();
+    clew.z = Math.abs(clew.z) * side;
+    const C = T.clone().lerp(clew, 0.15 + 0.85 * set);
+    this.side = side;
     const n = new THREE.Vector3().subVectors(Hd, T).cross(new THREE.Vector3().subVectors(C, T)).normalize();
     if (n.z * side < 0) n.negate();
     const luff = Hd.distanceTo(T);
@@ -173,7 +208,7 @@ export class Spanker {
     mast.group.add(this.brail);
   }
 
-  update(set, wind, time) {
+  update(set, wind, time, side = 1) {
     const g = this.mast.group;
     const throat = xform(new THREE.Vector3(0.3, -0.15, 0), this.gaff.group, g);
     const peak = xform(new THREE.Vector3(this.gaff.L - 0.3, -0.15, 0), this.gaff.group, g);
@@ -187,7 +222,7 @@ export class Spanker {
     this.brail.scale.set(bs, (throat.y - tack.y - 0.7) / 1.7, bs);
     this.mesh.visible = set > 0.015;
     if (!this.mesh.visible) return;
-    const n = new THREE.Vector3(0, 0, 1);
+    const n = new THREE.Vector3(0, 0, side);
     const pos = this.geo.attributes.position.array, uv = this.geo.attributes.uv.array;
     const NU = this.NU, NV = this.NV;
     const lo = new THREE.Vector3(), hi = new THREE.Vector3(), p = new THREE.Vector3();
@@ -230,6 +265,7 @@ export function buildSails(rig, body) {
       };
       const s = new SquareSail(`${mast.name}-${key}`, Y[key], foot, full[key] * mast.scale);
       s.mastName = mast.name; s.kind = key;
+      if (key === 'topsail') { s.reef = true; s.mesh.material = mats().canvasReef; }
       sails.square.push(s);
     };
     if (mast.name !== 'mizzen') add('course');

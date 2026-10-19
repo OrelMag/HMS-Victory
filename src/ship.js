@@ -14,26 +14,59 @@ const SAIL_KEYS = ['course', 'topsail', 'topgallant', 'royal', 'sprit',
 
 const allSails = (v) => Object.fromEntries(SAIL_KEYS.map((k) => [k, v]));
 
+// Poses set which sails are set, ports, guns and anchor. Heel, speed, bracing and the
+// rest follow from the wind (see windEffects).
 export const POSES = {
   sail: {
     set: { ...allSails(1), sprit: 0 },
     hoist: { topsail: 1, topgallant: 1, royal: 1 },
-    brace: -0.38, boomSwing: 0.3, heel: 0.07, speed: 5.0, wind: 1, ports: 0, runOut: 0,
-    anchor: 0, waveScale: 1, gaffEnsign: 1, jack: 0,
+    ports: 0, runOut: 0, anchor: 0, gaffEnsign: 1, jack: 0,
   },
   action: {
     set: { ...allSails(0), topsail: 1, foreTopmastStaysail: 1, jib: 1, spanker: 1 },
     hoist: { topsail: 1, topgallant: 1, royal: 0 },
-    brace: -0.26, boomSwing: 0.2, heel: 0.03, speed: 2.2, wind: 0.85, ports: 1, runOut: 1,
-    anchor: 0, waveScale: 0.8, gaffEnsign: 1, jack: 0,
+    ports: 1, runOut: 1, anchor: 0, gaffEnsign: 1, jack: 0,
   },
   anchor: {
     set: allSails(0),
     hoist: { topsail: 0, topgallant: 0, royal: 0 },
-    brace: 0, boomSwing: 0, heel: 0, speed: 0, wind: 0.35, ports: 0, runOut: 0,
-    anchor: 1, waveScale: 0.5, gaffEnsign: 0, jack: 1,
+    ports: 0, runOut: 0, anchor: 1, gaffEnsign: 0, jack: 1,
   },
 };
+
+// Share of the total driving canvas each sail contributes.
+const AREA = {
+  course: 0.3, topsail: 0.32, topgallant: 0.13, royal: 0.05, sprit: 0,
+  foreTopmastStaysail: 0.04, jib: 0.04, flyingJib: 0.03, mainTopmastStaysail: 0.02, mizzenStaysail: 0.02, spanker: 0.05,
+};
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+const wrapDeg = (a) => ((a + 540) % 360) - 180;
+
+// Everything the wind drives. dir: degrees the wind comes FROM, relative to the bow
+// (0 ahead, +90 starboard beam, -90 port beam, 180 astern). str: 0 calm .. 1 near gale.
+export function windEffects(S, dir, str) {
+  const rel = THREE.MathUtils.degToRad(wrapDeg(dir * (1 - S.anchor))); // at anchor she swings head to wind
+  const abs = Math.abs(rel);
+  const sign = rel < 0 ? -1 : 1;
+  const lee = rel <= 0 ? 1 : -1; // +1 = starboard is leeward
+  let area = 0;
+  for (const [k, a] of Object.entries(AREA)) area += a * (S[`set.${k}`] ?? 0);
+  const drive = clamp01((abs - THREE.MathUtils.degToRad(48)) / THREE.MathUtils.degToRad(30));
+  const free = 1 - S.anchor;
+  const speed = 6.0 * str * Math.pow(area, 0.8) * drive * (0.75 + 0.25 * Math.sin(abs)) * free;
+  const trueSpeed = 2 + 12 * str;
+  const toward = new THREE.Vector3(-Math.cos(rel), 0, -Math.sin(rel)).multiplyScalar(trueSpeed);
+  const apparent = toward.clone().add(new THREE.Vector3(-speed, 0, 0));
+  return {
+    rel, lee, area, drive, speed, toward, apparent,
+    brace: sign * 0.5 * clamp01((Math.PI - abs) / THREE.MathUtils.degToRad(110)) * free,
+    heel: -sign * str * 0.12 * area * Math.abs(Math.sin(rel)) * drive,
+    boomSwing: -sign * (0.06 + 0.5 * clamp01((abs - 0.8) / 2.35)) * free,
+    belly: (0.3 + 0.7 * str) * Math.max(drive, 0.06),
+    luff: (1 - drive) * (0.2 + str),
+    waveScale: (0.35 + 0.9 * str) * (1 - 0.35 * S.anchor),
+  };
+}
 
 // Flatten a pose into key -> number.
 function flat(p) {
@@ -75,6 +108,18 @@ export class Ship {
     this.rigging = new Rigging(this.rig);
     this.guns = new Guns(this.body);
     this.fittings = new Fittings(this.body, this.rig);
+    // Sails press against (and drape round) the standing rigging of their own mast.
+    for (const s of this.sails.square) {
+      const c = this.rigging.colliders[s.mastName];
+      if (!c) continue;
+      s.space = this.rig.group;
+      s.colliders = {
+        course: [...c.lower, ...c.futtock, ...c.backstay],
+        topsail: [...c.topmast, ...c.backstay],
+        topgallant: [...c.tg, ...c.backstay],
+        royal: [...c.backstay],
+      }[s.kind] || [];
+    }
 
     // Flags (in body space; placed every frame).
     this.flags = {
@@ -94,6 +139,15 @@ export class Ship {
     this.dirty = true;
     this.broadside = null;
     this.time = 0;
+    this.windTarget = { dir: -135, str: 0.6 };
+    this.windNow = { ...this.windTarget };
+  }
+
+  setWind(dir, str, instant = false) {
+    if (dir != null) this.windTarget.dir = dir;
+    if (str != null) this.windTarget.str = str;
+    if (instant) this.windNow = { ...this.windTarget };
+    this.dirty = true;
   }
 
   poseNames() { return Object.keys(POSES); }
@@ -139,40 +193,49 @@ export class Ship {
     }
     const S = this.cur;
 
+    // Ease the wind toward the target so yards swing round smoothly.
+    const wn = this.windNow, wt = this.windTarget;
+    const k = 1 - Math.exp(-dt * 1.2);
+    const dd = wrapDeg(wt.dir - wn.dir), ds = wt.str - wn.str;
+    if (Math.abs(dd) > 0.05 || Math.abs(ds) > 0.001) {
+      wn.dir = wrapDeg(wn.dir + dd * k);
+      wn.str += ds * k;
+      this.dirty = true;
+    }
+    const W = windEffects(S, wn.dir, wn.str);
+    this.W = W;
+
     // Wave motion and heel.
     const sea = this.sea;
-    sea.setScale(S.waveScale);
+    sea.setScale(W.waveScale);
+    sea.setDirection(Math.atan2(W.toward.z, W.toward.x));
     const L = 22, B = 6;
     const hb = sea.heightAt(L, 0), hs = sea.heightAt(-L, 0);
     const hp = sea.heightAt(0, -B), hst = sea.heightAt(0, B), hc = sea.heightAt(0, 0);
     this.root.position.y = ((hb + hs + hp + hst + hc * 2) / 6) * 0.85;
     this.root.rotation.z = Math.atan2(hb - hs, 2 * L) * 0.8;
     this.root.rotation.x = -Math.atan2(hst - hp, 2 * B) * 0.6;
-    this.body.rotation.x = S.heel;
-    this.distance += S.speed * dt;
+    this.body.rotation.x = W.heel;
+    this.distance += W.speed * dt;
 
     if (this.dirty) {
       this.rig.applyYards({
         hoist: { topsail: S['hoist.topsail'], topgallant: S['hoist.topgallant'], royal: S['hoist.royal'] },
-        brace: S.brace, boomSwing: S.boomSwing,
+        brace: W.brace, boomSwing: W.boomSwing,
       });
     }
     this.root.updateMatrixWorld(true);
 
-    // Sails animate every frame (they ripple).
-    const wind = S.wind;
-    for (const s of this.sails.square) {
-      const key = s.kind === 'sprit' ? 'sprit' : s.kind;
-      s.update(S[`set.${key}`], wind, t);
-    }
-    for (const s of this.sails.stay) s.update(S[`set.${s.kind}`], wind, t, 1);
-    this.sails.spanker.update(S['set.spanker'], wind, t);
+    // Sails animate every frame (they ripple, and shiver when the wind is too far forward).
+    for (const s of this.sails.square) s.update(S[`set.${s.kind}`], W.belly, t, W.luff);
+    for (const s of this.sails.stay) s.update(S[`set.${s.kind}`], W.belly, t, W.lee);
+    this.sails.spanker.update(S['set.spanker'], W.belly, t, W.lee);
 
     // Broadside: recoil and run out again.
     let gunsDirty = this.dirty;
     if (this.broadside) {
       const bd = this.broadside;
-      const windW = new THREE.Vector3(3.5, 0, 2.5).add(new THREE.Vector3(-S.speed, 0, 0));
+      const windW = W.apparent.clone().multiplyScalar(0.5);
       for (const p of bd.list) {
         if (p.fireAt > 0 && t >= p.fireAt) {
           p.fireAt = -1;
@@ -193,16 +256,13 @@ export class Ship {
     }
     if (gunsDirty) this.guns.apply(S.ports, S.runOut);
 
-    if (this.dirty) {
-      this.rigging.updateRunning(this.sails, S);
-      this.fittings.setAnchor(S.anchor);
-    }
+    this.rigging.updateRunning(this.sails, S, W);
+    if (this.dirty) this.fittings.setAnchor(S.anchor);
 
-    // Flags stream downwind (wind from the port quarter, or from ahead at anchor).
+    // Flags stream along the apparent wind.
     const rig = this.rig;
-    const atAnchor = S.anchor > 0.5;
-    const flagDir = atAnchor ? new THREE.Vector3(-1, 0, 0.25).normalize() : new THREE.Vector3(1, 0, 0.75).normalize();
-    Flag.update(t, 0.35 + 0.65 * Math.max(wind, atAnchor ? 0.55 : 0));
+    const flagDir = W.apparent.clone().setY(0).normalize();
+    Flag.update(t, 0.2 + 0.8 * Math.min(1, W.apparent.length() / 12));
     const P = (m, key) => xform(m.local[key].clone(), m.group, this.body);
     const peak = xform(new THREE.Vector3(rig.gaff.L - 0.1, 0, 0), rig.gaff.group, this.body);
     const ens = this.flags.ensign;
@@ -214,7 +274,7 @@ export class Ship {
     this.flags.jack.place(this.fittings.jackStaff, flagDir);
 
     this.effects.update(dt, this.scene.userData.camera?.position);
-    this.wake.update(this.distance, S.speed);
+    this.wake.update(this.distance, W.speed);
     this.dirty = false;
   }
 }

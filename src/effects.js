@@ -224,7 +224,7 @@ export class Wake {
       polygonOffset: true, polygonOffsetFactor: -2,
     });
     mat.uniforms.uFoam.value = tex;
-    for (const k of ['uTime', 'uOffset', 'uWaveScale']) mat.uniforms[k] = seaUniforms[k];
+    for (const k of ['uTime', 'uOffset', 'uWaveScale', 'uWaveRot']) mat.uniforms[k] = seaUniforms[k];
     this.uniforms = mat.uniforms;
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.renderOrder = 2;

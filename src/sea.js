@@ -20,11 +20,12 @@ const waveData = WAVES.map(([dx, dz, L, A, Q]) => {
 
 // GLSL for the surface height (no horizontal drift), for things that float on the sea.
 export const SEA_HEIGHT_GLSL = `
-uniform float uTime; uniform vec2 uOffset; uniform float uWaveScale;
+uniform float uTime; uniform vec2 uOffset; uniform float uWaveScale; uniform vec2 uWaveRot;
+vec2 seaRot(vec2 d) { return vec2(uWaveRot.x * d.x - uWaveRot.y * d.y, uWaveRot.y * d.x + uWaveRot.x * d.y); }
 float seaHeight(vec2 q) {
   vec2 p = q + uOffset;
   float y = 0.0;
-${waveData.map((w) => `  y += ${w.A.toFixed(5)} * sin(${w.k.toFixed(5)} * (dot(vec2(${w.dx.toFixed(5)}, ${w.dz.toFixed(5)}), p) - ${w.c.toFixed(5)} * uTime));`).join('\n')}
+${waveData.map((w) => `  y += ${w.A.toFixed(5)} * sin(${w.k.toFixed(5)} * (dot(seaRot(vec2(${w.dx.toFixed(5)}, ${w.dz.toFixed(5)})), p) - ${w.c.toFixed(5)} * uTime));`).join('\n')}
   return y * uWaveScale;
 }`;
 
@@ -66,6 +67,7 @@ export class Sea {
       uTime: { value: 0 },
       uOffset: { value: this.offset },
       uWaveScale: { value: 1 },
+      uWaveRot: { value: new THREE.Vector2(1, 0) },
     };
     const U = this.uniforms;
     const waveGLSL = waveData.map((w) =>
@@ -75,9 +77,10 @@ export class Sea {
       Object.assign(sh.uniforms, U);
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', `#include <common>
-uniform float uTime; uniform vec2 uOffset; uniform float uWaveScale;
+uniform float uTime; uniform vec2 uOffset; uniform float uWaveScale; uniform vec2 uWaveRot;
 varying float vCrest; varying vec3 vSeaWorld;
-void wave(vec2 p, vec2 d, float k, float A, float Q, float c, inout vec3 disp, inout vec3 tx, inout vec3 tz) {
+void wave(vec2 p, vec2 d0, float k, float A, float Q, float c, inout vec3 disp, inout vec3 tx, inout vec3 tz) {
+  vec2 d = vec2(uWaveRot.x * d0.x - uWaveRot.y * d0.y, uWaveRot.y * d0.x + uWaveRot.x * d0.y);
   float f = k * (dot(d, p) - c * uTime);
   float s = sin(f), co = cos(f);
   disp += vec3(Q * A * d.x * co, A * s, Q * A * d.y * co);
@@ -125,12 +128,21 @@ diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.75, 0.8, 0.8), crest * 0.2);`);
     this.uniforms.uWaveScale.value = s;
   }
 
+  // Turn the wave field so the main swell runs toward world angle `a` (radians, from +x toward +z).
+  setDirection(a) {
+    const base = Math.atan2(waveData[0].dz, waveData[0].dx);
+    this.rot = a - base;
+    this.uniforms.uWaveRot.value.set(Math.cos(this.rot), Math.sin(this.rot));
+  }
+
   // Height of the surface near world (x, z), ignoring the small horizontal drift.
   heightAt(x, z) {
     const px = x + this.offset.x, pz = z + this.offset.y, t = this.time;
+    const c = Math.cos(this.rot || 0), s = Math.sin(this.rot || 0);
     let y = 0;
     for (const w of waveData) {
-      y += w.A * this.scale * Math.sin(w.k * (w.dx * px + w.dz * pz - w.c * t));
+      const dx = c * w.dx - s * w.dz, dz = s * w.dx + c * w.dz;
+      y += w.A * this.scale * Math.sin(w.k * (dx * px + dz * pz - w.c * t));
     }
     return y;
   }

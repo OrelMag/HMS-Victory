@@ -59,9 +59,14 @@ export class Rigging {
     this.space = rig.group;
     this.standing = new Ropes(this.space, M.rope, 9000);
     this.running = new Ropes(this.space, M.ropeLight, 600);
+    // Lines that lie on the sails (buntlines, leechlines, clewlines, brails).
+    this.sailLines = new Ropes(this.space, M.ropeLight, 2000);
+    this.sailLines.mesh.castShadow = false;
     this.fittings = new THREE.Group();
     this.space.add(this.fittings);
     rig.group.updateMatrixWorld(true);
+    // Standing rigging that sails can press against, per mast: [bottom, top] pairs in rig space.
+    this.colliders = {};
     this.buildStanding(M);
   }
 
@@ -93,6 +98,7 @@ export class Rigging {
 
     for (const mast of Object.values(rig.masts)) {
       const s = mast.scale;
+      const col = this.colliders[mast.name] = { lower: [], futtock: [], topmast: [], tg: [], backstay: [] };
       const n = mast.name === 'main' ? 9 : mast.name === 'fore' ? 8 : 6;
       const x0 = mast.x + 0.4 * s, x1 = mast.x - 7.8 * s;
       const yc = deckY('upper', mast.x) + 1.95;
@@ -120,6 +126,7 @@ export class Rigging {
           const top = head.clone().add(V(0, 0, side * (mast.r.lower + 0.12)));
           R.tag = `${mast.name} lower shroud`;
           R.add(upper, top, 0.06 * (0.8 + 0.2 * s));
+          col.lower.push([upper, top]);
           shrouds.push([upper, top]);
         }
         R.tag = `${mast.name} lower ratline`;
@@ -135,9 +142,11 @@ export class Rigging {
           const fut = this.L(mast, V(lx * 0.3, m.topY - 3.2 * s, side * 0.65));
           R.tag = `${mast.name} futtock shroud`;
           R.add(edge, fut, 0.035);
+          col.futtock.push([fut, edge]);
           R.tag = `${mast.name} topmast shroud`;
           const th = this.L(mast, V(mast.dTop, m.crossY - 0.3, side * 0.3));
           R.add(edge.clone().add(V(0, 0.9, 0)), th, 0.045);
+          col.topmast.push([edge.clone().add(V(0, 0.9, 0)), th]);
           R.add(edge, edge.clone().add(V(0, 0.9, 0)), 0.02);
           tops.push([edge.clone().add(V(0, 0.9, 0)), th]);
         }
@@ -150,6 +159,7 @@ export class Rigging {
         const tgh = this.L(mast, V(mast.dTg, m.tgHead - 0.4, side * 0.14));
         R.add(ce.clone().add(V(-0.1, 0, 0)), tgh, 0.03);
         R.add(ce.clone().add(V(-0.8, 0, 0)), tgh, 0.03);
+        col.tg.push([ce.clone().add(V(-0.1, 0, 0)), tgh], [ce.clone().add(V(-0.8, 0, 0)), tgh]);
 
         // Backstays to stools aft of the channels.
         R.tag = `${mast.name} backstay`;
@@ -162,10 +172,15 @@ export class Rigging {
           const st = stool(k);
           deadeyes.push(st);
           channels.push(beamBetween(st.clone().add(V(0.4, -0.1, -side * 0.6)), st.clone().add(V(-0.4, -0.1, -side * 0.6)), 1.2, 0.2));
-          R.add(st, this.L(mast, V(mast.dTop, m.topmastHead - 0.6, side * 0.25)), 0.05);
+          const bt = this.L(mast, V(mast.dTop, m.topmastHead - 0.6, side * 0.25));
+          R.add(st, bt, 0.05);
+          col.backstay.push([st, bt]);
         }
-        R.add(stool(2), this.L(mast, V(mast.dTg, m.tgHead - 0.3, side * 0.12)), 0.035);
-        R.add(stool(2), this.L(mast, V(mast.dTg, m.poleHead - 0.2, side * 0.1)), 0.025);
+        const b1 = this.L(mast, V(mast.dTg, m.tgHead - 0.3, side * 0.12));
+        const b2 = this.L(mast, V(mast.dTg, m.poleHead - 0.2, side * 0.1));
+        R.add(stool(2), b1, 0.035);
+        R.add(stool(2), b2, 0.025);
+        col.backstay.push([stool(2), b1], [stool(2), b2]);
       }
     }
 
@@ -227,7 +242,7 @@ export class Rigging {
   }
 
   // Running rigging follows the yards; call after yards move.
-  updateRunning(sails, state) {
+  updateRunning(sails, state, W) {
     const R = this.running;
     const rig = this.rig;
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -243,7 +258,7 @@ export class Rigging {
       }
       if (mast.name === 'main') {
         if (yard.name === 'course') return V(-21.5, railTop(-21.5) + 0.3, s * (halfBreadth(-21.5, 9) + 0.1));
-        if (yard.name === 'topsail') return this.P(Mz, 'crossEnd', s);
+        if (yard.name === 'topsail') return V(Mz.x + 1.0, railTop(Mz.x + 1.0) + 0.6, s * (halfBreadth(Mz.x + 1.0, 9) + 0.4));
         if (yard.name === 'topgallant') return this.P(Mz, 'tgHead');
         return this.P(Mz, 'poleHead');
       }
@@ -262,9 +277,15 @@ export class Rigging {
           R.tag = `${mast.name} ${yard.name} brace`;
           R.addSag(arm, braceTarget(mast, yard, side), 0.022, 0.012, 3);
         }
-        // Halyard/tie.
+        // Tie, and the halyard fall coming down abaft the mast to the deck.
         R.tag = `${mast.name} ${yard.name} tie`;
         R.add(xform(V(0, yard.r, 0), yard.group, this.space), head, 0.04);
+        if (yard.name !== 'course') {
+          R.tag = `${mast.name} ${yard.name} halyard`;
+          const side = yard.name === 'topgallant' ? -1 : 1;
+          const foot = V(mast.x - 1.3, deckY('upper', mast.x) + (mast.x > 1 && mast.x < 15 ? 0.6 : 2.6), side * 0.9);
+          R.add(head.clone().add(V(-0.35, -0.3, side * 0.2)), foot, 0.03);
+        }
       }
     }
     // Course sheets & tacks when set.
@@ -275,7 +296,7 @@ export class Rigging {
       R.tag = `${s.mastName} course sheet/tack`;
       cl.forEach((vi, k) => {
         const p = xform(V(pos.getX(vi), pos.getY(vi), pos.getZ(vi)), s.yard.group, this.space);
-        const side = k === 0 ? -1 : 1;
+        const side = Math.sign(p.z) || (k === 0 ? -1 : 1);
         const x = s.mastName === 'fore' ? 9 : -12;
         R.addSag(p, V(x, railTop(x) + 0.3, side * (halfBreadth(x, 9) + 0.1)), 0.03, 0.01, 3);
         R.add(p, V(p.x + 6, railTop(p.x + 6) + 0.2, side * (halfBreadth(p.x + 6, 9) - 0.1)), 0.03);
@@ -286,9 +307,10 @@ export class Rigging {
       if (!s.mesh.visible) continue;
       const pos = s.geo.attributes.position;
       const c = V(pos.getX(s.NU - 1), pos.getY(s.NU - 1), pos.getZ(s.NU - 1));
-      const x = Math.min(23, c.x - 4);
+      const between = s.kind === 'mainTopmastStaysail' || s.kind === 'mizzenStaysail';
+      const x = between ? c.x + 3 : Math.min(23, c.x - 4);
       R.tag = `${s.name} sheet`;
-      R.addSag(c, V(x, railTop(x) + 0.3, (halfBreadth(x, 9) - 0.2)), 0.025, 0.02, 3);
+      R.addSag(c, V(x, railTop(x) + 0.3, Math.sign(c.z) * (halfBreadth(x, 9) - 0.2)), 0.025, 0.02, 3);
     }
     // Spanker boom topping lifts and sheet; gaff vangs.
     const boomEnd = xform(V(rig.boom.L - 0.3, 0, 0), rig.boom.group, this.space);
@@ -296,16 +318,16 @@ export class Rigging {
     R.tag = 'boom topping lift';
     // One lift each side of the sail: offset across the boom at the bottom, across the mast at the top.
     // The leeward lift lies slack over the belly of the spanker.
-    const belly = 1.3 * state.wind * state['set.spanker'];
+    const belly = 1.3 * W.belly * state['set.spanker'];
     for (const side of [1, -1]) {
       const lo = xform(V(rig.boom.L - 0.3, 0, side * 0.45), rig.boom.group, this.space);
       const hi = this.P(Mz, 'lowerHead').add(V(0, 0, side * 0.9));
-      const bow = side > 0 ? belly + 0.35 : 0;
+      const bow = side === W.lee ? belly + 0.35 : 0;
       let prev = lo;
       for (let k = 1; k <= 8; k++) {
         const t = k / 8;
         const p = lo.clone().lerp(hi, t);
-        p.z += bow * Math.sin(Math.PI * Math.min(1, t * 1.25));
+        p.z += side * bow * Math.sin(Math.PI * Math.min(1, t * 1.25));
         R.add(prev, p, 0.03);
         prev = p;
       }
@@ -313,7 +335,8 @@ export class Rigging {
     R.tag = 'spanker sheet';
     R.addSag(boomEnd, V(-29.0, railTop(-29) + 0.3, 0), 0.04, 0.01, 2);
     R.tag = 'gaff vang';
-    for (const side of [1, -1]) R.addSag(peak, V(-28.5, railTop(-28.5) + 0.2, side * (halfBreadth(-28.5, railTop(-28.5)) - 0.1)), 0.02, 0.02, 3);
+    R.addSag(peak, xform(V(rig.boom.L - 0.4, 0.15, 0), rig.boom.group, this.space), 0.02, 0.02, 3);
+    R.addSag(peak, V(-28.5, railTop(-28.5) + 0.2, -W.lee * (halfBreadth(-28.5, railTop(-28.5)) - 0.1)), 0.02, 0.02, 3);
     R.tag = 'peak halyard';
     R.add(peak, this.P(Mz, 'topmastShroudHead'), 0.03);
     // Spritsail yard lifts.
@@ -323,6 +346,76 @@ export class Rigging {
       const arm = xform(V(0, 0, side * sy.L * 0.48), sy.group, this.space);
       R.add(arm, rig.bowsprit.cap, 0.022);
       R.addSag(arm, V(26.5, railTop(26.5) + 0.3, side * 3.5), 0.02, 0.02, 3);
+    }
+    R.end();
+    this.updateSailLines(sails);
+  }
+
+  // Lines lying on the sails, rebuilt every frame from the sail surfaces.
+  updateSailLines(sails) {
+    const R = this.sailLines;
+    R.begin();
+    const inv = new THREE.Matrix4().copy(this.space.matrixWorld).invert();
+    const m = new THREE.Matrix4();
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), n = new THREE.Vector3();
+    const point = (s, i, j, off, front) => {
+      const pos = s.geo.attributes.position, nor = s.geo.attributes.normal;
+      const k = j * s.NU + i;
+      a.fromBufferAttribute(pos, k);
+      n.fromBufferAttribute(nor, k);
+      if (n.dot(front) < 0) n.negate();
+      return a.clone().addScaledVector(n, off).applyMatrix4(m);
+    };
+    const along = (s, i, off, front, r, extra) => {
+      let prev = null;
+      for (let j = s.NV - 1; j >= 0; j--) {
+        const p = point(s, i, j, off, front);
+        if (prev) R.add(prev, p, r);
+        prev = p;
+      }
+      if (extra) R.add(prev, extra.clone().applyMatrix4(m), r);
+    };
+    const FWD = new THREE.Vector3(1, 0, 0);
+    const BUNT = { course: [0.2, 0.4, 0.6, 0.8], topsail: [0.28, 0.5, 0.72], topgallant: [0.35, 0.65] };
+    for (const s of sails.square) {
+      if (!s.mesh.visible || !BUNT[s.kind]) continue;
+      m.multiplyMatrices(inv, s.yard.group.matrixWorld);
+      const hw = s.yard.L * 0.465;
+      R.tag = `${s.name} buntline`;
+      for (const u of BUNT[s.kind]) {
+        const i = Math.round(u * (s.NU - 1));
+        const z = -hw + (2 * hw * i) / (s.NU - 1);
+        along(s, i, 0.06, FWD, 0.018, new THREE.Vector3(s.yard.r + 0.05, s.yard.r * 0.6, z));
+      }
+      if (s.kind === 'course') {
+        R.tag = `${s.name} leechline`;
+        for (const u of [0.1, 0.9]) along(s, Math.round(u * (s.NU - 1)), -0.06, FWD, 0.016, null);
+      }
+      // Clewlines from the clews up abaft the sail to the yard.
+      R.tag = `${s.name} clewline`;
+      for (const i of [0, s.NU - 1]) {
+        const c = point(s, i, s.NV - 1, -0.05, FWD);
+        const side = i === 0 ? -1 : 1;
+        R.add(c, new THREE.Vector3(-0.25, -s.yard.r, side * hw * 0.55).applyMatrix4(m), 0.018);
+      }
+    }
+    // Spanker brails, round both faces of the sail from the leech to the mast.
+    const sp = sails.spanker;
+    if (sp.mesh.visible) {
+      m.multiplyMatrices(inv, sp.mast.group.matrixWorld);
+      R.tag = 'spanker brail';
+      const side = new THREE.Vector3(0, 0, 1);
+      for (const v of [0.3, 0.55, 0.8]) {
+        const j = Math.round(v * (sp.NV - 1));
+        for (const off of [0.06, -0.06]) {
+          let prev = null;
+          for (let i = sp.NU - 1; i >= 0; i--) {
+            const p = point(sp, i, j, off, side);
+            if (prev) R.add(prev, p, 0.016);
+            prev = p;
+          }
+        }
+      }
     }
     R.end();
   }

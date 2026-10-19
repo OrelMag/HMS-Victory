@@ -29,7 +29,9 @@ page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
 for (let i = 0; i < args.length; i += 2) {
   const name = args[i], q = args[i + 1];
   const t0 = Date.now();
-  await page.goto(`${page0}?shot=1&ui=0&t=12&${q}`);
+  // "live" lets time run (for animations such as a broadside); otherwise time is frozen.
+  const t = q.includes('live') ? '' : '&t=12';
+  await page.goto(`${page0}?shot=1&ui=0${t}&${q}`);
   try {
     await page.waitForFunction(() => window.__ready === true, null, { timeout: +(process.env.SHOT_TIMEOUT || 60000) });
   } catch {

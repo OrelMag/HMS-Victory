@@ -1,6 +1,6 @@
 // Shared materials.
 import * as THREE from 'three';
-import { COLORS, deckTexture, woodTexture, sailTexture, hammockTexture } from './textures.js';
+import { COLORS, deckTexture, woodTexture, sailTexture, hammockTexture, reefSailTexture } from './textures.js';
 
 let cache = null;
 
@@ -26,6 +26,7 @@ export function mats() {
     rope: std('#3b2f22', 0.9),
     ropeLight: std('#8a7556', 0.9),
     canvas: std('#ffffff', 0.92, 0, { map: sailTexture(), side: THREE.DoubleSide }),
+    canvasReef: std('#ffffff', 0.92, 0, { map: reefSailTexture(), side: THREE.DoubleSide }),
     furl: std('#dcd2b8', 0.95),
     hammock: std('#ffffff', 0.95, 0, { map: hammockTexture() }),
     glass: std('#2b3a48', 0.15, 0.4, { emissive: '#000000' }),

@@ -15,6 +15,19 @@ built with Three.js. Opens as a static page, no install needed.
   - **Cleared for action**: fighting sail, ports open, guns run out, optional broadside
   - **At anchor**: sails furled, anchor cable down
 
+### Wind
+- Wind direction and strength sliders. The yards brace round, sails fill (or shiver when she is
+  too close to the wind), the ship heels and gathers way, the spanker boom swings to leeward,
+  headsail sheets shift sides, flags stream with the apparent wind, smoke drifts and the sea builds.
+
+### Rigging
+- Standing rigging: shrouds and ratlines, futtock, topmast and topgallant shrouds, backstays,
+  stays, bobstays, bowsprit shrouds and martingale; chainplates between the gunports.
+- Running rigging: lifts, braces, ties, halyards, course sheets and tacks, headsail sheets,
+  buntlines, leechlines, clewlines, spanker brails, boom lifts, gaff vangs; footropes and stirrups,
+  studding-sail booms, reef bands on the topsails.
+- Sails lie against the lee shrouds and backstays when braced sharp, instead of passing through.
+
 ### Interior (fully furnished, deck by deck)
 - **Quarterdeck & poop**: wheel, binnacle, Captain Hardy's cabin
 - **Upper gun deck**: Nelson's great cabin, dining and sleeping cabins, sick berth
@@ -27,6 +40,16 @@ built with Three.js. Opens as a static page, no install needed.
 - **Isometric character mode** (Desperados-style): steer a sailor around the ship; decks above
   and the near hull side cut away automatically when he goes below, blocking walls fade
 - **Free camera** with deck peel, cutaway slider, X-ray hull, and clickable room labels
+
+## Running it
+Open `index.html` in a browser (the built bundle is in `dist/`). To rebuild after changing
+`src/`: `npm install`, then `npm run build` (or `npm run watch`).
+
+Tools (need Microsoft Edge, or set `SHOT_CHANNEL=chrome`):
+- `node tools/shot.mjs <name> "<query>"`: screenshot to `screenshots/tmp/`, e.g.
+  `node tools/shot.mjs bow "view=bow&pose=action&wind=90&windStr=0.8"`
+- `node tools/clash.mjs`: checks that no rope or spar passes through a sail, and no sail through
+  another, in every pose, across wind directions and strengths, and through every pose change.
 
 ## Phases
 1. Exterior and the three poses

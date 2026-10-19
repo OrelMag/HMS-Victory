@@ -53,7 +53,7 @@ export function findClashes(ship) {
 
   // Ropes are built in rig space, which is body space.
   const segs = [];
-  for (const R of [ship.rigging.standing, ship.rigging.running]) for (const s of R.segs) segs.push(s);
+  for (const R of [ship.rigging.standing, ship.rigging.running, ship.rigging.sailLines]) for (const s of R.segs) segs.push(s);
   // Spars: yards and masts as axis segments.
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
   const toB = (obj, p) => p.applyMatrix4(new THREE.Matrix4().multiplyMatrices(toBody, obj.matrixWorld));
