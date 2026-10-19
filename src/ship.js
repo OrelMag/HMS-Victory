@@ -11,6 +11,7 @@ import { Guns } from './guns.js';
 import { Fittings } from './fittings.js';
 import { Flag } from './flags.js';
 import { Effects, Wake } from './effects.js';
+import { mats } from './materials.js';
 
 const SAIL_KEYS = ['course', 'topsail', 'topgallant', 'royal', 'sprit',
   'foreTopmastStaysail', 'jib', 'flyingJib', 'mainTopmastStaysail', 'mizzenStaysail', 'spanker',
@@ -134,6 +135,16 @@ export class Ship {
     this.fittings = new Fittings(this.body, this.rig);
     this.furnishing = buildFurnishing(this.fittings);
     this.body.add(this.furnishing);
+    // After dark: what glows (material, day intensity, night intensity) and where the lanterns hang.
+    const M = mats();
+    this.nightMaterials = [[this.furnishing.userData.glow, 0.9, 3.0], [M.lantern, 0, 3.5]];
+    hull.traverse((o) => { if (o.userData.glow) for (const m of o.userData.glow) this.nightMaterials.push([m, 0, 0.75]); });
+    this.lanterns = this.furnishing.userData.lanterns.map((p) => ({ p }));
+    this.root.updateMatrixWorld(true);
+    for (const glass of this.fittings.lanterns) {
+      const p = glass.getWorldPosition(new THREE.Vector3());
+      this.lanterns.push({ p: this.body.worldToLocal(p) });
+    }
     // Things that are struck down when clearing for action (rooms register here too).
     this.clearables = [{ setCleared: (c) => this.furnishing.userData.setCleared(c) }];
     this.isCleared = null;

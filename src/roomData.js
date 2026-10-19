@@ -119,11 +119,11 @@ export const ROOMS = [
   // ---- Hold ----
   { deck: 'hold', name: 'After hold', x0: -20, x1: -4.5, z0: -4, z1: 4, lx: -10, ly: 1.4,
     note: 'Seven compartments, among them the after powder room and the flour store.', source: `${S.mckay} (low-medium confidence)` },
-  { deck: 'hold', name: 'Well and shot lockers', x0: -4.5, x1: -0.5, z0: -1.8, z1: 1.8, walls: ['aft', 'fore', 'port', 'stbd'],
+  { deck: 'hold', name: 'Well and shot lockers', obj: true, x0: -4.5, x1: -0.5, z0: -1.8, z1: 1.8, walls: ['aft', 'fore', 'port', 'stbd'],
     note: 'Around the foot of the mainmast: the well, where the pumps drew from, with the shot lockers forward and aft of it.', source: `${S.mckay}; Longridge` },
   { deck: 'hold', name: 'Main hold', x0: -0.5, x1: 15, z0: -4, z1: 4, lx: 7, ly: 1.4,
     note: 'Water casks bedded on iron and shingle ballast: enough fresh water for several months, with beer, salt beef and pork.', source: S.mckay },
-  { deck: 'hold', name: 'Filling room', x0: 15, x1: 18, z0: -3, z1: 3, walls: [['aft', 3], 'fore'],
+  { deck: 'hold', name: 'Filling room', x0: 15, x1: 18, z0: -3, z1: 3, walls: [['aft', 3], ['fore', 3]],
     note: 'Where powder was made up into cartridges, lit only from the light room through glass.', source: `${S.mckay}; ${S.wp}` },
   { deck: 'hold', name: 'Grand magazine', x0: 18, x1: 23, z0: -3, z1: 3, walls: ['fore'],
     note: 'Forward, copper-lined, below the waterline. It held the ship\'s main stock of gunpowder; men wore felt slippers and nothing iron was allowed inside. The layout changed after 1805.', source: `${S.mckay}; ${S.wp}` },

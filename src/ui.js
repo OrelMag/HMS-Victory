@@ -17,7 +17,7 @@ export function windName(dir, str) {
 }
 
 export class UI {
-  constructor({ onPose, onView, onFire, onWind, wind, poses, views, levels, onLevel, onCut, onXray, onLabels, onMode }) {
+  constructor({ onPose, onView, onFire, onWind, wind, poses, views, levels, onLevel, onCut, onXray, onLabels, onMode, onTime }) {
     const el = document.getElementById('ui');
     el.innerHTML = `
       <h1>HMS Victory <span>1805</span></h1>
@@ -31,6 +31,7 @@ export class UI {
         <div class="slider"><span>Strength</span><input id="windStr" type="range" min="0" max="100" step="1"></div>
         <div class="windText" id="windText"></div>
         <div class="windHint" id="windHint"></div></div>
+      <div class="group"><div class="label">Time</div><div class="row" id="times"></div></div>
       <div class="group"><div class="label">Inside: show decks down to</div><div class="row" id="levels"></div>
         <div class="slider"><span>Cut open</span><input id="cut" type="range" min="0" max="100" step="1" value="0"></div>
         <label class="check"><input id="xray" type="checkbox"> X-ray hull</label>
@@ -47,6 +48,15 @@ export class UI {
       this.modeButtons[m] = b;
     }
     this.el = el;
+    this.timeButtons = {};
+    const te = el.querySelector('#times');
+    for (const [k, label] of [['day', 'Day'], ['dusk', 'Dusk'], ['night', 'Night']]) {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.onclick = () => onTime(k);
+      te.appendChild(b);
+      this.timeButtons[k] = b;
+    }
     this.poseButtons = {};
     const pe = el.querySelector('#poses');
     for (const p of poses) {
@@ -94,6 +104,10 @@ export class UI {
       wt.textContent = windName(dir, str);
       wh.textContent = '';
     };
+  }
+
+  setTime(t) {
+    for (const [k, b] of Object.entries(this.timeButtons)) b.classList.toggle('active', k === t);
   }
 
   setMode(m) {

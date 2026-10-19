@@ -1,13 +1,13 @@
 // The sailor you steer in the isometric view: figure, walkability map of every deck, ladders.
 import * as THREE from 'three';
 import {
-  DECK, HATCHES, COMPANIONS, GANGWAY, MASTS, QD_FWD, FC_AFT, POOP_FWD, ladderwayLadder,
+  DECK, HATCHES, COMPANIONS, GANGWAY, MASTS, QD_FWD, FC_AFT, POOP_FWD, ladderwayLadder, holdLadder, HOLD_FLOOR,
   deckY, halfBreadth, xStern, xBow,
 } from './config.js';
 import { floor } from './furnish.js';
 import { roomWallSegments } from './rooms.js';
 
-export const LEVEL_ORDER = ['orlop', 'lower', 'middle', 'upper', 'qd', 'poop'];
+export const LEVEL_ORDER = ['hold', 'orlop', 'lower', 'middle', 'upper', 'qd', 'poop'];
 const RADIUS = 0.24;            // the sailor's body
 const X0 = -31, Z0 = -8.6, CELL = 0.1, NX = 620, NZ = 172;
 
@@ -66,6 +66,7 @@ function buildFigure() {
 // ---------- Walkability map ----------
 function deckRange(level) {
   switch (level) {
+    case 'hold': return [-20.6, 19.6];
     case 'orlop': return [xStern(DECK.orlop) + 0.5, xBow(DECK.orlop) - 0.7];
     case 'lower': case 'middle': return [xStern(DECK[level]) + 0.45, xBow(DECK[level]) - 0.6];
     case 'upper': return [xStern(DECK.upper) + 0.8, xBow(DECK.upper) - 0.8];
@@ -76,7 +77,7 @@ function deckRange(level) {
 const weather = (level) => level === 'qd' || level === 'poop';
 
 function holesFor(level) {
-  if (weather(level)) return [];
+  if (weather(level) || level === 'hold') return [];
   if (level === 'orlop') return HATCHES.filter((h) => h.x > -14 && h.x < 15);
   return HATCHES;
 }
@@ -149,6 +150,11 @@ export class WalkMap {
           { x: L.x, z: L.zFoot + sd * 0.32 }, { x: 0, z: -sd }, { x: L.x, z: sd * (h.d / 2 + 0.68) }, { x: 0, z: -sd });
       }
     }
+    {
+      const L = holdLadder(), h = L.hatch;
+      portal('hold', 'orlop', { x: L.x, z: L.zFoot }, { x: L.x, z: L.zTop },
+        { x: L.x, z: L.zFoot - 0.32 }, { x: 0, z: 1 }, { x: L.x, z: -(h.d / 2 + 0.68) }, { x: 0, z: 1 });
+    }
     for (const c of COMPANIONS) {
       for (const s of [1, -1]) {
         const dir = Math.sign(c.run), z = s * c.z;
@@ -158,10 +164,10 @@ export class WalkMap {
     }
 
     // Bulkheads, with their doorways open (gun-deck ones are down when cleared for action).
-    const levelOf = { qd: 'qd', upper: 'upper', middle: 'middle', lower: 'lower', orlop: 'orlop' };
+    const levelOf = { qd: 'qd', upper: 'upper', middle: 'middle', lower: 'lower', orlop: 'orlop', hold: 'hold' };
     for (const w of roomWallSegments()) {
       const l = levelOf[w.deck];
-      if (!l || (ship.isCleared && l !== 'orlop')) continue;
+      if (!l || (ship.isCleared && l !== 'orlop' && l !== 'hold')) continue;
       const len = Math.hypot(w.b.x - w.a.x, w.b.z - w.a.z);
       const at = (d) => [w.a.x + (w.b.x - w.a.x) * d / len, w.a.z + (w.b.z - w.a.z) * d / len];
       if (w.door == null) seg(l, w.a.x, w.a.z, w.b.x, w.b.z);
@@ -202,7 +208,7 @@ export class WalkMap {
       for (let i = 0; i < NX; i++) {
         const x = X0 + (i + 0.5) * CELL;
         const inX = x > xa && x < xb;
-        const y = deckY(name, x);
+        const y = l === 'hold' ? HOLD_FLOOR : deckY(name, x);
         const hw = halfBreadth(x, y + 0.5) - (weather(l) || l === 'upper' ? 0.32 : 0) - 0.35;
         for (let j = 0; j < NZ; j++) {
           const z = Z0 + (j + 0.5) * CELL;

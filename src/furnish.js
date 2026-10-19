@@ -257,13 +257,17 @@ export function buildFurnishing(fittings) {
 
   // ---- Hold ----
   // Water casks in tiers on the shingle ballast, fore and aft.
+  // Casks stowed in tiers, leaving a gangway down the middle, room round the well and the
+  // foot of the hold ladder.
+  const keepClear = (x, z, R) => Math.abs(z) < 1.05 + R || (Math.abs(x - mx) < 3.2 && Math.abs(z) < 3.0 + R)
+    || (x > -0.2 && x < 3.8 && z < 0.2 && z > -5.4);
   const tierCasks = (x0, x1, prop, L, R) => {
     for (let x = x0; x <= x1; x += L + 0.05) {
       if (Math.abs(x - mx) < 2.6) continue;
       const w = halfBreadth(x, -5.3 + R) - 0.25;
-      for (let z = -w + R; z <= w - R; z += 2 * R + 0.02) put(prop, 'hold', x, z, 0);
+      for (let z = -w + R; z <= w - R; z += 2 * R + 0.02) if (!keepClear(x, z, R)) put(prop, 'hold', x, z, 0);
       const w2 = halfBreadth(x, -5.3 + 3 * R) - 0.3;
-      for (let z = -w2 + 2 * R; z <= w2 - 2 * R; z += 2 * R + 0.02) put(prop, 'hold', x, z, 0, 2 * R * 0.9);
+      for (let z = -w2 + 2 * R; z <= w2 - 2 * R; z += 2 * R + 0.02) if (!keepClear(x, z, R)) put(prop, 'hold', x, z, 0, 2 * R * 0.9);
     }
   };
   tierCasks(0.6, 14.2, 'leaguer', 1.6, 0.52);
@@ -273,7 +277,7 @@ export function buildFurnishing(fittings) {
   // Grand magazine: powder barrels; filling room: cartridge racks.
   for (let x = 18.4; x < 22.6; x += 0.5) {
     const w = Math.min(2.6, halfBreadth(x, -5.0) - 0.5);
-    for (let z = -w; z <= w; z += 0.48) put('powder', 'hold', x, z, 0);
+    for (let z = -w; z <= w; z += 0.48) if (Math.abs(z) > 0.7) put('powder', 'hold', x, z, 0);
   }
   put('cartridgeRack', 'hold', 16.0, -1.6, 0); put('cartridgeRack', 'hold', 16.0, 1.6, Math.PI);
 
@@ -301,6 +305,8 @@ export function buildFurnishing(fittings) {
   const tiller = new THREE.Mesh(paint(new THREE.BoxGeometry(8.2, 0.32, 0.32).translate(tx0 + 4.1, ty, 0), '#5a4330'), mat);
   tiller.castShadow = true;
   group.add(tiller);
+  group.userData.glow = glow;
+  group.userData.lanterns = (P.items.lantern || []).map((m) => new THREE.Vector3().setFromMatrixPosition(m));
   group.userData.setCleared = (cleared) => {
     for (const [mesh, list] of meshes) {
       if (!list.some((m) => m.clearable)) continue;

@@ -232,6 +232,9 @@ export function deckTexture() {
 export const STERN_H0 = -2.4, STERN_H1 = 13.6;
 export function sternTexture(widthAt) {
   const W = 2048, H = 2048, c = canvas(W, H), g = c.getContext('2d');
+  const gc = canvas(512, 512), gg = gc.getContext('2d'); // lit windows after dark
+  gg.fillStyle = '#000';
+  gg.fillRect(0, 0, 512, 512);
   const py = (h) => (STERN_H1 - h) / (STERN_H1 - STERN_H0) * H;
   const s0 = sheer(-28.5);
   g.fillStyle = COLORS.black;
@@ -282,6 +285,8 @@ export function sternTexture(widthAt) {
         const sh = 30 + ((cc * 7 + rr * 13 + i * 5) % 9) * 6;
         g.fillStyle = `rgb(${sh * 0.6 | 0},${sh * 0.8 | 0},${sh | 0})`;
         g.fillRect(wx0 + cc * pw + 3, py(b) + rr * ph + 3, pw - 6, ph - 6);
+        gg.fillStyle = `rgb(255,${190 + ((cc + rr + i) % 3) * 15},${110 + ((cc * rr + i) % 4) * 12})`;
+        gg.fillRect((wx0 + cc * pw + 3) / 4, (py(b) + rr * ph + 3) / 4, (pw - 6) / 4, (ph - 6) / 4);
       }
     }
     g.fillStyle = COLORS.ochre;
@@ -317,7 +322,9 @@ export function sternTexture(widthAt) {
     g.arc(cx + r * (1.6 + k * 1.3), cy, r * 0.6, Math.PI * 1.4, Math.PI * 3);
     g.stroke();
   }
-  return toTexture(c, { aniso: 16 });
+  const tex = toTexture(c, { aniso: 16 });
+  tex.userData.glow = toTexture(gc);
+  return tex;
 }
 
 // Quarter-gallery / poop-front window strip (tileable horizontally).

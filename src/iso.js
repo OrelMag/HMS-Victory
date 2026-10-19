@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { Sailor } from './sailor.js';
 
-const CUT_FOR = { orlop: 'orlop', lower: 'lower', middle: 'middle', upper: 'upper', qd: 'quarterdeck', poop: 'poop' };
+const CUT_FOR = { hold: 'hold', orlop: 'orlop', lower: 'lower', middle: 'middle', upper: 'upper', qd: 'quarterdeck', poop: 'poop' };
 const ELEV = THREE.MathUtils.degToRad(40);
 
 export class IsoMode {
@@ -90,6 +90,12 @@ export class IsoMode {
       this.rooms.setLevel(lvl);
       this.ui?.setLevel(lvl);
     }
+
+    // Below the waterline the ship's side stays up; cut away the side nearest the camera instead.
+    if (this.sailor.level === 'hold' || this.sailor.level === 'orlop') {
+      const side = Math.sin(this.theta) >= 0 ? 1 : -1;
+      this.cut.setCutPlane(side * this.sailor.z + 2.4, side);
+    } else if (this.cut.cutZ < 50) this.cut.setCutPlane(1e5, 1);
 
     // Follow camera.
     this.theta += (this.thetaTarget - this.theta) * Math.min(1, dt * 6);

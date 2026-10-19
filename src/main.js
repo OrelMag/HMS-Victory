@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Sky } from 'three/addons/objects/Sky.js';
+import { Environment, LanternLights } from './environment.js';
 import { Sea } from './sea.js';
 import { Ship, POSES } from './ship.js';
 import { UI } from './ui.js';
@@ -25,40 +25,11 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.2, 9000);
 scene.userData.camera = camera;
 
-// Sky and sun.
-const sky = new Sky();
-sky.scale.setScalar(8000);
-const su = sky.material.uniforms;
-su.turbidity.value = 2.2;
-su.rayleigh.value = 2.2;
-su.mieCoefficient.value = 0.003;
-su.mieDirectionalG.value = 0.82;
-const sun = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 28), THREE.MathUtils.degToRad(215));
-su.sunPosition.value.copy(sun);
-scene.add(sky);
-
-const pmrem = new THREE.PMREMGenerator(renderer);
-const envScene = new THREE.Scene();
-const envSky = new Sky();
-envSky.scale.setScalar(1000);
-Object.assign(envSky.material.uniforms.sunPosition.value, sun);
-for (const k of ['turbidity', 'rayleigh', 'mieCoefficient', 'mieDirectionalG']) envSky.material.uniforms[k].value = su[k].value;
-envScene.add(envSky);
-const envMap = pmrem.fromScene(envScene, 0, 0.1, 2000).texture;
-scene.environment = envMap;
-scene.environmentIntensity = 0.7;
-scene.fog = new THREE.Fog('#b9c8d2', 400, 3800);
-
-const sunLight = new THREE.DirectionalLight('#fff1dc', 3.2);
-sunLight.position.copy(sun).multiplyScalar(150);
-sunLight.castShadow = true;
-sunLight.shadow.mapSize.set(4096, 4096);
-const sc = sunLight.shadow.camera;
-sc.left = -60; sc.right = 60; sc.top = 60; sc.bottom = -60; sc.near = 10; sc.far = 400;
-sunLight.shadow.bias = -0.0004;
-sunLight.shadow.normalBias = 0.04;
-scene.add(sunLight, sunLight.target);
-scene.add(new THREE.HemisphereLight('#cfe0f0', '#30404a', 0.5));
+// Sky, light and time of day.
+const env = new Environment(renderer, scene);
+const sunLight = env.sun;
+env.setTime('day');
+const envMap = scene.environment;
 
 const sea = new Sea(envMap);
 scene.add(sea.mesh);
@@ -127,10 +98,21 @@ const ui = params.get('ui') === '0' ? null : new UI({
   onCut: (f) => cut.setCut(f),
   onXray: (on) => cut.setXray(on),
   onMode: (m) => setMode(m),
+  onTime: (tm) => setTime(tm),
   poses: ship.poseNames(),
   views: Object.keys(VIEWS),
 });
 const iso = new IsoMode({ ship, cut, rooms, renderer, ui });
+// Things that glow after dark, and lantern light below decks.
+env.nightMaterials.push(...ship.nightMaterials);
+const lanternLights = new LanternLights(ship, ship.lanterns);
+function setTime(name) {
+  env.setTime(name, sea);
+  ship.wake.uniforms.uLight.value = env.light;
+  ship.effects.light = env.light;
+  ui?.setTime(name);
+}
+setTime(params.get('time') || 'day');
 function setMode(m) {
   if (m === 'sailor' && !iso.active) { iso.enter(); controls.enabled = false; }
   if (m === 'free' && iso.active) { iso.exit(); controls.enabled = true; }
@@ -187,6 +169,9 @@ function frame() {
     controls.target.lerpVectors(camTween.t0, camTween.t1, e);
     if (camTween.k >= 1) camTween = null;
   }
+  // Lanterns nearest what you are looking at light up after dark.
+  const focus = iso.active ? iso.sailor.figure.position.clone() : ship.body.worldToLocal(controls.target.clone());
+  lanternLights.update(dt, focus, env.night, cut.uniforms.uCutY.value);
   let cam = camera;
   if (iso.active) { iso.update(fixedT != null ? 1 / 30 : dt); cam = iso.camera; } else controls.update();
   renderer.render(scene, cam);

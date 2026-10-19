@@ -1,7 +1,7 @@
 // Internal structure: decks with hatchways, coamings, ladders, beams, pillars, ballast.
 import * as THREE from 'three';
 import {
-  DECK, HATCHES, COMPANIONS, ladderwayLadder, deckY, halfBreadth, xStern, xBow, QD_FWD, FC_AFT, POOP_FWD, lerp,
+  DECK, HATCHES, COMPANIONS, ladderwayLadder, holdLadder, HOLD_FLOOR, deckY, halfBreadth, xStern, xBow, QD_FWD, FC_AFT, POOP_FWD, lerp,
 } from './config.js';
 import { merge, beamBetween, cylBetween } from './geom.js';
 import { mats } from './materials.js';
@@ -123,6 +123,8 @@ export function buildInterior() {
       ladders.push(...ladderZ(L.x, L.zFoot, deckY(stack[i], h.x) + 0.05, L.zTop, deckY(stack[i + 1], h.x)));
     }
   }
+  // The long ladder down into the hold.
+  { const L = holdLadder(); ladders.push(...ladderZ(L.x, L.zFoot, HOLD_FLOOR, L.zTop, deckY('orlop', L.x))); }
   // Companion ladders up to the quarterdeck and forecastle at their breaks.
   for (const c of COMPANIONS) for (const s of [1, -1]) {
     ladders.push(...ladder(c.x, s * c.z, deckY(c.from, c.x), deckY(c.to, c.x + c.run), c.run, 0.7));

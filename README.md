@@ -44,7 +44,14 @@ built with Three.js. Opens as a static page, no install needed.
 ### Sailor mode (isometric)
 Press **Sailor (isometric)**. WASD or arrows to walk, Shift to run, click to walk to a spot,
 walk into a ladder to climb it, Q / E to turn the view, scroll to zoom. The decks above him are
-peeled away automatically, and the room labels for his deck appear.
+peeled away automatically, and the room labels for his deck appear. He can go all the way down
+to the hold by the long ladder at the main hatch; on the orlop and in the hold the near side of
+the ship is cut away instead.
+
+### Time of day
+Day, dusk or night. By night the moon lights the sails, stars come out, the stern and quarter
+gallery windows and the poop lanterns glow, and the lanterns below decks light the deck you are
+looking at (the nearest eight cast light).
 
 ### View modes
 - **Isometric character mode** (Desperados-style): steer a sailor around the ship; decks above

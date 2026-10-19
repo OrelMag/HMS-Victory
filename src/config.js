@@ -147,6 +147,13 @@ export function ladderwayLadder(h, side = 1) {
   return { x: h.x, zFoot: side * (h.d / 2 + 1.0), zTop: side * (h.d / 2 - 0.05), side };
 }
 
+// The long ladder from the orlop down to the hold, through the main hatch on the larboard side.
+export const HOLD_FLOOR = -5.3;
+export function holdLadder() {
+  const h = HATCHES.find((q) => q.name === 'main hatch');
+  return { x: h.x, zFoot: -(h.d / 2 + 1.75), zTop: -(h.d / 2 - 0.05), side: -1, hatch: h };
+}
+
 // Companion ladders at the deck breaks: foot at x on the lower deck, rising `run` metres (sign =
 // direction) to the edge of the deck above; one each side at +/-z.
 export const COMPANIONS = [

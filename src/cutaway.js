@@ -24,6 +24,7 @@ export class Cutaway {
       uShipInv: { value: new THREE.Matrix4() },
       uCutY: { value: 1e5 },
       uCutZ: { value: 1e5 },
+      uCutSide: { value: 1 },
     };
     // The rig is never sliced lengthwise (cutaway drawings keep masts and sails whole).
     this.rigCutZ = { value: 1e5 };
@@ -59,6 +60,7 @@ export class Cutaway {
       sh.uniforms.uShipInv = U.uShipInv;
       sh.uniforms.uCutY = shell ? this.shellCutY : U.uCutY;
       sh.uniforms.uCutZ = rig ? this.rigCutZ : U.uCutZ;
+      sh.uniforms.uCutSide = U.uCutSide;
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', '#include <common>\nuniform mat4 uShipInv;\nvarying vec3 vCutPos;')
         .replace('#include <project_vertex>', `#include <project_vertex>
@@ -68,10 +70,10 @@ cutP = instanceMatrix * cutP;
 #endif
 vCutPos = (uShipInv * modelMatrix * cutP).xyz;`);
       sh.fragmentShader = sh.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform float uCutY, uCutZ;\nvarying vec3 vCutPos;')
+        .replace('#include <common>', '#include <common>\nuniform float uCutY, uCutZ, uCutSide;\nvarying vec3 vCutPos;')
         .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
 { float cutSheer = 0.85 * pow((vCutPos.x - 2.0) / 28.0, 2.0);
-  if (vCutPos.y > uCutY + cutSheer || vCutPos.z > uCutZ) discard; }`);
+  if (vCutPos.y > uCutY + cutSheer || vCutPos.z * uCutSide > uCutZ) discard; }`);
     };
     mat.customProgramCacheKey = () => `${prevKey}|cut${rig ? 'R' : ''}${shell ? 'S' : ''}`;
     mat.needsUpdate = true;
@@ -91,6 +93,15 @@ vCutPos = (uShipInv * modelMatrix * cutP).xyz;`);
   setCut(f) {
     this.cutZ = f <= 0.001 ? 1e5 : 9 - f * 9.2;
     this.uniforms.uCutZ.value = this.cutZ;
+    this.uniforms.uCutSide.value = 1;
+    this.refresh();
+  }
+
+  // Cut away everything beyond z = c on one side (side +1 starboard, -1 larboard).
+  setCutPlane(c, side) {
+    this.cutZ = c;
+    this.uniforms.uCutZ.value = c;
+    this.uniforms.uCutSide.value = side;
     this.refresh();
   }
 

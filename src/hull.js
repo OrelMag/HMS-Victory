@@ -66,7 +66,9 @@ export function buildHull() {
   }
   const NK = 48;
   const widthAt = (h) => bSec(h) * wEnd(h);
-  const sternMat = new THREE.MeshStandardMaterial({ map: sternTexture(widthAt), roughness: 0.6 });
+  const sternMap = sternTexture(widthAt);
+  const sternMat = new THREE.MeshStandardMaterial({ map: sternMap, roughness: 0.6, emissiveMap: sternMap.userData.glow, emissive: '#ffffff', emissiveIntensity: 0 });
+  group.userData.glow = [sternMat];
   const stern = gridGeometry(NK, rows.length, (k, j) => {
     const [x, h, w] = rows[j];
     const z = lerp(-w, w, k / (NK - 1));
@@ -538,7 +540,22 @@ function buildQuarterGalleries() {
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 });
+  // Lit windows after dark.
+  const gc = document.createElement('canvas');
+  gc.width = gc.height = 512;
+  const gx = gc.getContext('2d');
+  gx.fillStyle = '#000';
+  gx.fillRect(0, 0, 512, 512);
+  for (const [a, b] of [[DECK.middle + hs + 0.45, DECK.middle + hs + 1.6], [DECK.upper + hs + 0.45, DECK.upper + hs + 1.6]]) {
+    for (let i = 0; i < 5; i++) {
+      gx.fillStyle = '#ffc883';
+      gx.fillRect(25 + i * 98, V(b) + 5, 68, V(a) - V(b) - 10);
+    }
+  }
+  const glow = new THREE.CanvasTexture(gc);
+  glow.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, emissiveMap: glow, emissive: '#ffffff', emissiveIntensity: 0 });
+  g.userData.glow = [mat];
 
   const env = (h) => {
     if (h < hBot) { const t = (h - hDrop) / (hBot - hDrop); return Math.sin(t * Math.PI / 2) ** 1.3; }

@@ -30,6 +30,9 @@ const out = await p.evaluate(() => {
   at('lower', -9.0, 2.0); walk(0, 1, 4); report(`stopped by gun/side (z<6)`, s.z < 6 ? 'lower' : 'X');
   // 6. Doorway: from Nelson's dining cabin aft into the great cabin through the bulkhead door.
   at('upper', -23.0, 0.0); walk(-1, 0, 4); report('through doorway into the great cabin (x<-23.8)', s.x < -23.8 ? 'upper' : 'X');
+  // 8. Down the long ladder into the hold, and back up.
+  at('orlop', 1.8, -2.4); walk(0, 1, 5); report('orlop -> hold', 'hold');
+  walk(0, -1, 0.8); walk(0, 1, 5); report('hold -> orlop', 'orlop');
   // 7. Orlop ladder up to the lower deck at the after ladderway.
   at('orlop', -12.2, 3.6); walk(0, -1, 3.5); report('orlop -> lower', 'lower');
   return log;
@@ -73,7 +76,7 @@ for (const pose of ['anchor', 'action']) {
     }
     const missing = [];
     for (const r of ROOMS) {
-      if (r.deck === 'hold' || r.obj) continue;
+      if (r.obj) continue;
       const l = r.deck;
       let ok = false;
       for (let x = Math.min(r.x0, r.x1) + 0.2; x < Math.max(r.x0, r.x1) - 0.2 && !ok; x += 0.1) {

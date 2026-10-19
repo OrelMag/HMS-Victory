@@ -111,7 +111,7 @@ export class Effects {
     for (let k = 0; k < 14; k++) {
       const v = dir.clone().multiplyScalar(10 + r() * 22)
         .add(new THREE.Vector3((r() - 0.5) * 4, (r() - 0.3) * 3, (r() - 0.5) * 4));
-      const g = 0.82 + r() * 0.12;
+      const g = (0.82 + r() * 0.12) * (this.light ?? 1);
       this.smoke.spawn({
         pos: pos.clone().addScaledVector(dir, 0.5), vel: v, acc: new THREE.Vector3(wind.x, 0.35, wind.z),
         drag: 1.4 + r() * 0.6, age: 0, life: 9 + r() * 7, fadeIn: 0.15,
@@ -153,7 +153,7 @@ export class Wake {
     const tex = new THREE.CanvasTexture(c);
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     this.tex = tex;
-    this.uniforms = { uFoam: { value: tex }, uScroll: { value: 0 }, uStrength: { value: 0 } };
+    this.uniforms = { uFoam: { value: tex }, uScroll: { value: 0 }, uStrength: { value: 0 }, uLight: { value: 1 } };
 
     const pos = [], uv = [], alpha = [], idx = [];
     // A foam strip: f(t) -> { x, z, px, pz, half, a }, sampled along its length (t) and across (s).
@@ -218,12 +218,12 @@ export class Wake {
         gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
         }`,
-      fragmentShader: `uniform sampler2D uFoam; uniform float uScroll, uStrength; varying float vA; varying vec2 vUv; varying vec3 vWorldP;
+      fragmentShader: `uniform sampler2D uFoam; uniform float uScroll, uStrength, uLight; varying float vA; varying vec2 vUv; varying vec3 vWorldP;
         ${HULL_MASK_GLSL}
         #include <fog_pars_fragment>
         void main(){ if (insideHull(vWorldP)) discard; float f = texture2D(uFoam, vUv + vec2(uScroll, 0.0)).a;
         float f2 = texture2D(uFoam, vUv * 0.6 + vec2(uScroll * 0.7, 0.31)).a;
-        gl_FragColor = vec4(vec3(0.95), (f * 0.7 + f2 * 0.6) * vA * uStrength);
+        gl_FragColor = vec4(vec3(0.95) * uLight, (f * 0.7 + f2 * 0.6) * vA * uStrength);
         #include <fog_fragment>
         }`,
       transparent: true, depthWrite: false, fog: true, side: THREE.DoubleSide,
