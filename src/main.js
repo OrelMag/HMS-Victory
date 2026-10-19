@@ -73,6 +73,8 @@ function showRoom(r) {
   info.querySelector('.close').onclick = () => { info.style.display = 'none'; };
 }
 const rooms = new Rooms(ship.body, document.body, showRoom);
+ship.clearables.push(rooms);
+rooms.setCleared(ship.isCleared);
 const cut = new Cutaway(ship, sunLight);
 
 const controls = new OrbitControls(camera, renderer.domElement);

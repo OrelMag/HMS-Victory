@@ -25,25 +25,25 @@ export const POSES = {
   sail: {
     set: { ...allSails(1), sprit: 0, ...NO_STUNS },
     hoist: { topsail: 1, topgallant: 1, royal: 1 },
-    ports: 0, runOut: 0, anchor: 0, gaffEnsign: 1, jack: 0, unionStays: 0,
+    ports: 0, runOut: 0, anchor: 0, gaffEnsign: 1, jack: 0, unionStays: 0, cleared: 0,
   },
   // Going into action at Trafalgar: very light wind from astern, every stitch set including
   // studding sails, ports open and guns run out, Union flags on the stays (Nelson's order).
   trafalgar: {
     set: { ...allSails(1), sprit: 0 },
     hoist: { topsail: 1, topgallant: 1, royal: 1 },
-    ports: 1, runOut: 1, anchor: 0, gaffEnsign: 1, jack: 0, unionStays: 1,
+    ports: 1, runOut: 1, anchor: 0, gaffEnsign: 1, jack: 0, unionStays: 1, cleared: 1,
     wind: { dir: -160, str: 0.15 },
   },
   action: {
     set: { ...allSails(0), topsail: 1, foreTopmastStaysail: 1, jib: 1, spanker: 1 },
     hoist: { topsail: 1, topgallant: 1, royal: 0 },
-    ports: 1, runOut: 1, anchor: 0, gaffEnsign: 1, jack: 0, unionStays: 0,
+    ports: 1, runOut: 1, anchor: 0, gaffEnsign: 1, jack: 0, unionStays: 0, cleared: 1,
   },
   anchor: {
     set: allSails(0),
     hoist: { topsail: 0, topgallant: 0, royal: 0 },
-    ports: 0, runOut: 0, anchor: 1, gaffEnsign: 0, jack: 1, unionStays: 0,
+    ports: 0, runOut: 0, anchor: 1, gaffEnsign: 0, jack: 1, unionStays: 0, cleared: 0,
   },
 };
 
@@ -105,6 +105,7 @@ function windowFor(key, from, to) {
   if (key === 'anchor') return up ? [0.55, 0.95] : [0.0, 0.4];
   if (key === 'gaffEnsign' || key === 'jack' || key === 'unionStays') return [0.5, 0.52];
   if (key.startsWith('set.stun')) return up ? [0.75, 1.0] : [0.0, 0.3];
+  if (key === 'cleared') return up ? [0.05, 0.25] : [0.7, 0.9];
   return [0, 1];
 }
 
@@ -131,7 +132,11 @@ export class Ship {
     this.rigging = new Rigging(this.rig);
     this.guns = new Guns(this.body);
     this.fittings = new Fittings(this.body, this.rig);
-    this.body.add(buildFurnishing(this.fittings));
+    this.furnishing = buildFurnishing(this.fittings);
+    this.body.add(this.furnishing);
+    // Things that are struck down when clearing for action (rooms register here too).
+    this.clearables = [{ setCleared: (c) => this.furnishing.userData.setCleared(c) }];
+    this.isCleared = null;
     // Sails press against (and drape round) the standing rigging of their own mast.
     for (const s of this.sails.square) {
       const c = this.rigging.colliders[s.mastName];
@@ -294,6 +299,11 @@ export class Ship {
 
     this.rigging.updateRunning(this.sails, S, W);
     if (this.dirty) this.fittings.setAnchor(S.anchor);
+    const cleared = S.cleared > 0.5;
+    if (cleared !== this.isCleared) {
+      this.isCleared = cleared;
+      for (const c of this.clearables) c.setCleared(cleared);
+    }
 
     // Flags stream along the apparent wind.
     const rig = this.rig;

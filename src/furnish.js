@@ -97,11 +97,18 @@ const PROPS = {
 };
 
 // ---------- Placement ----------
+// Struck down into the hold when the ship clears for action (only on the gun decks).
+const CLEARABLE = new Set(['messTable', 'bench', 'plate', 'chest', 'tub', 'table', 'chair', 'desk', 'settee', 'globe', 'cot', 'hammock', 'bucket']);
+const GUN_DECKS = new Set(['lower', 'middle', 'upper', 'qd']);
+const DECK_BELOW = { middle: 'lower', upper: 'middle', qd: 'upper', poop: 'qd', lower: 'orlop' };
+
 class Placer {
-  constructor() { this.items = {}; this._m = new THREE.Matrix4(); this._q = new THREE.Quaternion(); }
+  constructor() { this.items = {}; this.deck = null; this._q = new THREE.Quaternion(); }
   add(prop, x, y, z, rotY = 0, s = 1) {
-    (this.items[prop] ||= []).push(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z),
-      this._q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotY).clone(), new THREE.Vector3(s, s, s)));
+    const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z),
+      this._q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotY).clone(), new THREE.Vector3(s, s, s));
+    m.clearable = CLEARABLE.has(prop) && GUN_DECKS.has(this.deck);
+    (this.items[prop] ||= []).push(m);
   }
 }
 
@@ -119,8 +126,8 @@ const nearMast = (x, pad = 1.2) => Object.values(MASTS).some((m) => Math.abs(x -
 
 export function buildFurnishing(fittings) {
   const P = new Placer();
-  const put = (prop, deck, x, z, rot = 0, lift = 0) => P.add(prop, x, floor(deck, x, z) + lift, z, rot);
-  const hang = (prop, deckAbove, x, z, rot = 0) => P.add(prop, x, beamUnder(deckAbove, x), z, rot);
+  const put = (prop, deck, x, z, rot = 0, lift = 0) => { P.deck = deck; P.add(prop, x, floor(deck, x, z) + lift, z, rot); };
+  const hang = (prop, deckAbove, x, z, rot = 0) => { P.deck = DECK_BELOW[deckAbove]; P.add(prop, x, beamUnder(deckAbove, x), z, rot); };
 
   // ---- Gun decks: messes between the guns, shot garlands along the side ----
   const ports = portList();
@@ -134,6 +141,7 @@ export function buildFurnishing(fittings) {
       for (const side of [1, -1]) {
         const zs = side * (halfIn(x, deckY(deck, x)) - 0.05);
         // Table hung from the side with its inboard end on a rope from the beam; benches each side.
+        P.deck = deck;
         P.add('messTable', x, floor(deck, x, zs), zs, side > 0 ? Math.PI : 0);
         put('bench', deck, x - 0.6, zs - side * 1.0, Math.PI / 2);
         put('bench', deck, x + 0.6, zs - side * 1.0, Math.PI / 2);
@@ -142,6 +150,7 @@ export function buildFurnishing(fittings) {
         if ((i + (side > 0 ? 0 : 1)) % 2 === 0) put('chest', deck, x - 0.95, zs - side * 0.35, Math.PI / 2);
         if (i % 3 === 0) put('tub', deck, x + 0.95, zs - side * 1.9);
         // Shot garland on the side, under the port sills.
+        P.deck = null;
         P.add('garland', xs[i] + 1.5, floor(deck, x, zs) + 0.02, zs - side * 0.12, 0);
       }
     }
@@ -273,10 +282,13 @@ export function buildFurnishing(fittings) {
   group.name = 'furnishing';
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 });
   const glow = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, emissive: '#ffb347', emissiveIntensity: 0.9 });
+  const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+  const meshes = [];
   for (const [name, list] of Object.entries(P.items)) {
     const geo = PROPS[name]();
     const mesh = new THREE.InstancedMesh(geo, name === 'lantern' ? glow : mat, list.length);
     list.forEach((m, i) => mesh.setMatrixAt(i, m));
+    meshes.push([mesh, list]);
     mesh.castShadow = name !== 'lantern' && name !== 'plate';
     mesh.receiveShadow = true;
     mesh.name = name;
@@ -289,5 +301,12 @@ export function buildFurnishing(fittings) {
   const tiller = new THREE.Mesh(paint(new THREE.BoxGeometry(8.2, 0.32, 0.32).translate(tx0 + 4.1, ty, 0), '#5a4330'), mat);
   tiller.castShadow = true;
   group.add(tiller);
+  group.userData.setCleared = (cleared) => {
+    for (const [mesh, list] of meshes) {
+      if (!list.some((m) => m.clearable)) continue;
+      list.forEach((m, i) => mesh.setMatrixAt(i, cleared && m.clearable ? zero : m));
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+  };
   return group;
 }

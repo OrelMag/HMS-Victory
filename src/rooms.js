@@ -80,10 +80,10 @@ export class Rooms {
     this.group = new THREE.Group();
     this.group.name = 'rooms';
     parent.add(this.group);
-    const painted = [], bare = [];
-    const BARE = new Set(['lower', 'orlop', 'hold']);
+    // Partitions on the gun decks come down when the ship clears for action; the orlop and hold stay.
+    const painted = [], bareGun = [], bare = [];
     for (const r of ROOMS) {
-      const parts = BARE.has(r.deck) ? bare : painted;
+      const parts = r.deck === 'lower' ? bareGun : (r.deck === 'orlop' || r.deck === 'hold') ? bare : painted;
       for (const w of r.walls || []) {
         const [side, door] = Array.isArray(w) ? w : [w, null];
         let a, b;
@@ -99,12 +99,15 @@ export class Rooms {
         wall(r.deck, a, b, door, parts);
       }
     }
-    for (const [parts, map] of [[painted, panelTexture()], [bare, plankTexture()]]) {
+    const plank = plankTexture();
+    this.clearable = [];
+    for (const [parts, map, clear] of [[painted, panelTexture(), true], [bareGun, plank, true], [bare, plank, false]]) {
       if (!parts.length) continue;
       const mesh = new THREE.Mesh(merge(parts), new THREE.MeshStandardMaterial({ map, roughness: 0.85, side: THREE.DoubleSide }));
       mesh.castShadow = mesh.receiveShadow = true;
       mesh.name = 'bulkheads';
       this.group.add(mesh);
+      if (clear) this.clearable.push(mesh);
     }
 
     // Labels.
@@ -130,6 +133,7 @@ export class Rooms {
   }
 
   setLevel(level) { this.level = level; this.refresh(); }
+  setCleared(cleared) { for (const m of this.clearable) m.visible = !cleared; }
   setEnabled(on) { this.enabled = on; this.refresh(); }
 
   refresh() {
