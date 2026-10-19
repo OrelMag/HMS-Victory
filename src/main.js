@@ -9,6 +9,8 @@ import { Cutaway, LEVELS } from './cutaway.js';
 import { Rooms } from './rooms.js';
 import { DECK_NAMES, ROOMS } from './roomData.js';
 import { IsoMode } from './iso.js';
+import { Post } from './post.js';
+import { sailLight } from './materials.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -108,9 +110,10 @@ env.nightMaterials.push(...ship.nightMaterials);
 const lanternLights = new LanternLights(ship, ship.lanterns);
 function setTime(name) {
   env.setTime(name, sea);
-  ship.wake.uniforms.uLight.value = env.light;
+  ship.wake.uniforms.uLight.value = env.light * (env.night > 0.9 ? 0.45 : 1);
   ship.effects.light = env.light;
   ui?.setTime(name);
+  if (typeof post !== 'undefined') tuneBloom();
 }
 setTime(params.get('time') || 'day');
 function setMode(m) {
@@ -144,10 +147,20 @@ if (params.get('mode') === 'sailor') {
   ui?.setMode('sailor');
 }
 
+const post = new Post(renderer, scene, camera);
+function tuneBloom() {
+  // The sky round the sun is far brighter than anything on the ship, so bloom only by night.
+  post.bloom.enabled = env.night > 0.9;
+  post.bloom.threshold = 0.75;
+  post.bloom.strength = 0.55;
+}
+tuneBloom();
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  post.setSize(window.innerWidth, window.innerHeight);
 });
 
 const clock = new THREE.Clock();
@@ -174,11 +187,15 @@ function frame() {
   lanternLights.update(dt, focus, env.night, cut.uniforms.uCutY.value);
   let cam = camera;
   if (iso.active) { iso.update(fixedT != null ? 1 / 30 : dt); cam = iso.camera; } else controls.update();
-  renderer.render(scene, cam);
+  // Sun direction in view space, for light through the sails.
+  sailLight.uSunView.value.copy(env.sun.position).normalize().transformDirection(cam.matrixWorldInverse);
+  sailLight.uSunCol.value.copy(env.sun.color).multiplyScalar(env.sun.intensity / 3.2);
+  post.setCamera(cam);
+  post.render(cut.active || cut.xray);
   rooms.render(scene, cam, window.innerWidth, window.innerHeight);
   frames++;
   if (frames === 3) window.__ready = true;
   requestAnimationFrame(frame);
 }
 frame();
-window.__victory = { ship, camera, controls, scene, setView, cut, iso, setMode, ROOMS, clashes: () => findClashes(ship) };
+window.__victory = { ship, camera, controls, scene, setView, cut, iso, setMode, ROOMS, post, clashes: () => findClashes(ship) };

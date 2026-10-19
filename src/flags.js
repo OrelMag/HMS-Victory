@@ -29,6 +29,7 @@ transformed.x -= abs(wv) * 0.25;`);
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.castShadow = true;
     this.mesh.frustumCulled = false;
+    this.mesh.userData.noAO = true;
     parent.add(this.mesh);
   }
 

@@ -421,6 +421,24 @@ export function sailTexture() {
     g.fillStyle = `rgba(120,100,70,${rand() * 0.05})`;
     g.fillRect(rand() * W, rand() * H, 1 + rand() * 3, 1);
   }
+  // Weathering: faint water stains, mildew speckle and the odd patch of newer cloth.
+  for (let i = 0; i < 14; i++) {
+    const x = rand() * W, y = rand() * H, r = 20 + rand() * 60;
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, `rgba(120,105,75,${0.04 + rand() * 0.06})`);
+    grd.addColorStop(1, 'rgba(120,105,75,0)');
+    g.fillStyle = grd;
+    g.fillRect(x - r, y - r, 2 * r, 2 * r);
+  }
+  for (let i = 0; i < 900; i++) {
+    g.fillStyle = `rgba(70,75,60,${rand() * 0.1})`;
+    g.fillRect(rand() * W, rand() * H, 1 + rand() * 2, 1 + rand() * 2);
+  }
+  {
+    const px = Math.floor(rand() * 3) * (W / 3), py = rand() * (H - 120);
+    g.fillStyle = 'rgba(255,252,240,0.35)';
+    g.fillRect(px + 3, py, W / 3 - 3, 90 + rand() * 50);
+  }
   // Cloth seams every ~0.6 m.
   for (let k = 0; k < 3; k++) {
     const x = (k / 3) * W;

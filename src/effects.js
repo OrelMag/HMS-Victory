@@ -50,6 +50,7 @@ class Particles {
     mat.uniforms.map.value = puffTexture();
     this.mesh = new THREE.Mesh(g, mat);
     this.mesh.frustumCulled = false;
+    this.mesh.userData.noAO = true;
     this.mesh.renderOrder = additive ? 11 : 10;
     scene.add(this.mesh);
     this.list = [];
@@ -234,6 +235,7 @@ export class Wake {
     this.uniforms = mat.uniforms;
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.renderOrder = 2;
+    this.mesh.userData.noAO = true;
     this.mesh.frustumCulled = false;
     parent.add(this.mesh);
   }

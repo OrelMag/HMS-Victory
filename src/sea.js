@@ -143,6 +143,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.75, 0.8, 0.8), crest * 0.18);`);
     this.mesh.receiveShadow = false;
     this.mesh.frustumCulled = false;
     this.mesh.name = 'sea';
+    this.mesh.userData.noAO = true;
   }
 
   update(t, shipDistance) {

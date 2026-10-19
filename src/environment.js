@@ -42,6 +42,7 @@ export class Environment {
     this.scene = scene;
     this.sky = new Sky();
     this.sky.scale.setScalar(8000);
+    this.sky.userData.noAO = true;
     scene.add(this.sky);
     this.pmrem = new THREE.PMREMGenerator(renderer);
     this.envScene = new THREE.Scene();
@@ -75,6 +76,7 @@ export class Environment {
     scene.add(this.stars);
     this.moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: moonTexture(), fog: false, depthWrite: false }));
     this.moon.scale.setScalar(150);
+    this.moon.userData.noAO = true;
     scene.add(this.moon);
 
     this.nightMaterials = []; // [material, dayIntensity, nightIntensity]

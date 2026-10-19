@@ -75,10 +75,20 @@ export class Rig {
     top.quadraticCurveTo(tl * 0.55, tw, tl * 0.55, 0);
     top.quadraticCurveTo(tl * 0.55, -tw, tl * 0.25, -tw);
     top.closePath();
+    // The lubber's hole beside the mast, for those who would not climb the futtock shrouds.
+    const hole = new THREE.Path();
+    const hx0 = rl1 + 0.15, hx1 = Math.min(tl * 0.45, hx0 + 0.9 * s), hz = Math.min(tw * 0.55, 1.1 * s);
+    hole.moveTo(-tl * 0.3, -hz); hole.lineTo(hx1, -hz); hole.lineTo(hx1, hz); hole.lineTo(-tl * 0.3, hz); hole.closePath();
+    top.holes.push(hole);
     const tg = new THREE.ExtrudeGeometry(top, { depth: 0.22, bevelEnabled: false });
     tg.rotateX(Math.PI / 2);
     tg.translate(0, m.topY + 0.22, 0);
     black.push(tg);
+    // Battens across the top and a rim round its edge.
+    for (let k = -3; k <= 3; k++) {
+      const z = (k / 3.5) * tw;
+      black.push(new THREE.BoxGeometry(tl * 0.95, 0.05, 0.08).translate(tl * 0.05, m.topY + 0.25, z));
+    }
     // Top rail with stanchions along the after edge.
     for (let k = 0; k <= 6; k++) {
       const z = -tw + (2 * tw * k) / 6;

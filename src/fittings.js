@@ -225,13 +225,6 @@ export class Fittings {
           g.translate(-L / 2 + 0.05 + k * (L - 0.1) / 6, hb + rise / 2 + 0.02, s * Wd / 4);
           bars.push(g);
         }
-        // Guard rods over the glass.
-        for (let k = 1; k < 6; k++) {
-          // Rods lie along the slope, a hand's breadth above the glass.
-          const n = new THREE.Vector3(0, Math.cos(slope), s * Math.sin(slope));
-          bars.push(new THREE.CylinderGeometry(0.015, 0.015, sl * 0.95).rotateX(Math.PI / 2).rotateX(s * slope)
-            .translate(-L / 2 + k * L / 6 + 0.12, hb + rise / 2 + n.y * 0.09, s * Wd / 4 + n.z * 0.09));
-        }
       }
       bars.push(new THREE.BoxGeometry(L, 0.08, 0.08).translate(0, hb + rise, 0));
       // Gable ends.
