@@ -44,9 +44,29 @@ export const COLORS = {
 };
 
 // ---------- Hull side ----------
+// Height field (grey, 128 = flat) -> tangent-space normal map.
+function heightToNormal(hc, strength = 2.5) {
+  const W = hc.width, H = hc.height;
+  const src = hc.getContext('2d').getImageData(0, 0, W, H).data;
+  const out = canvas(W, H), og = out.getContext('2d'), img = og.createImageData(W, H);
+  const h = (x, y) => src[((Math.min(H - 1, Math.max(0, y)) * W) + Math.min(W - 1, Math.max(0, x))) * 4] / 255;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const dx = (h(x + 1, y) - h(x - 1, y)) * strength, dy = (h(x, y + 1) - h(x, y - 1)) * strength;
+    const l = Math.hypot(dx, dy, 1);
+    const i = (y * W + x) * 4;
+    img.data[i] = (-dx / l * 0.5 + 0.5) * 255;
+    img.data[i + 1] = (dy / l * 0.5 + 0.5) * 255;
+    img.data[i + 2] = (1 / l * 0.5 + 0.5) * 255;
+    img.data[i + 3] = 255;
+  }
+  og.putImageData(img, 0, 0);
+  return out;
+}
+
 export function hullTextures() {
   const W = 4096, H = 1024;
   const c = canvas(W, H), g = c.getContext('2d');
+  const hc = canvas(W / 2, H / 2), hg = hc.getContext('2d'); // height field for the normal map
   const mr = canvas(1024, 256), m = mr.getContext('2d');
   const sx = W / (TEX_X1 - TEX_X0), sy = H / (TEX_H1 - TEX_H0);
   const px = (x) => (x - TEX_X0) * sx;
@@ -55,6 +75,8 @@ export function hullTextures() {
 
   g.fillStyle = COLORS.black;
   g.fillRect(0, 0, W, H);
+  hg.fillStyle = 'rgb(128,128,128)';
+  hg.fillRect(0, 0, W / 2, H / 2);
 
   // Ochre port bands (the "Nelson chequer").
   g.fillStyle = COLORS.ochre;
@@ -62,16 +84,28 @@ export function hullTextures() {
   // Narrow ochre moulding below the rail.
   g.fillRect(0, py(DECK.qd + 1.02), W, 0.09 * sy);
 
-  // Plank seams and butts.
+  // Plank seams and butts (grooves in the height field), trenails at the frames, grain.
   for (let hs = TEX_H0; hs < TEX_H1; hs += 0.22) {
+    const butts = [];
+    let x = TEX_X0 - rand() * 6;
+    while (x < TEX_X1) { butts.push(x); x += 5.5 + rand() * 2; }
     g.fillStyle = 'rgba(0,0,0,0.28)';
     g.fillRect(0, py(hs), W, 1.2);
-    let x = TEX_X0 - rand() * 6;
     g.fillStyle = 'rgba(0,0,0,0.22)';
-    while (x < TEX_X1) {
-      g.fillRect(px(x), py(hs + 0.22), 1.2, 0.22 * sy);
-      x += 5.5 + rand() * 2;
+    for (const b of butts) g.fillRect(px(b), py(hs + 0.22), 1.2, 0.22 * sy);
+    hg.fillStyle = 'rgb(70,70,70)';
+    hg.fillRect(0, py(hs) / 2 - 0.5, W / 2, 1.6);
+    for (const b of butts) hg.fillRect(px(b) / 2 - 0.5, py(hs + 0.22) / 2, 1.4, 0.22 * sy / 2);
+    hg.fillStyle = 'rgba(100,100,100,0.8)';
+    for (let f = TEX_X0; f < TEX_X1; f += 0.75) {
+      hg.fillRect(px(f) / 2, py(hs + 0.08) / 2, 1.2, 1.2);
+      hg.fillRect(px(f) / 2, py(hs + 0.16) / 2, 1.2, 1.2);
     }
+  }
+  for (let i = 0; i < 9000; i++) {
+    const v = 110 + rand() * 40;
+    hg.fillStyle = `rgba(${v | 0},${v | 0},${v | 0},0.35)`;
+    hg.fillRect(rand() * W / 2, rand() * H / 2, 4 + rand() * 30, 1);
   }
   // Weathering speckle.
   for (let i = 0; i < 26000; i++) {
@@ -79,36 +113,83 @@ export function hullTextures() {
     g.fillStyle = rand() < 0.5 ? `rgba(0,0,0,${a})` : `rgba(255,240,210,${a * 0.6})`;
     g.fillRect(rand() * W, rand() * H, 1 + rand() * 5, 1 + rand() * 2);
   }
-  // Main wales: slightly glossier black strakes below the lower ports.
-  g.fillStyle = 'rgba(0,0,0,0.35)';
-  g.fillRect(0, py(BANDS[0][0]), W, 0.9 * sy);
 
-  // Gunport openings (dark interior, red reveal) — the lids are separate meshes.
+  // Gunport openings (dark interior, reveal) with water streaks running down from the sills.
   for (const p of portList()) {
     const t = p.tier;
     const hs = p.y - sheer(p.x);
     const x0 = px(p.x - t.w / 2), y0 = py(hs + t.h / 2);
     const w = t.w * sx, h = t.h * sy;
+    for (let k = 0; k < 5; k++) {
+      const sxp = x0 + rand() * w, len = (0.4 + rand() * 1.2) * sy;
+      const grd = g.createLinearGradient(0, y0 + h, 0, y0 + h + len);
+      grd.addColorStop(0, `rgba(20,14,8,${0.12 + rand() * 0.12})`);
+      grd.addColorStop(1, 'rgba(20,14,8,0)');
+      g.fillStyle = grd;
+      g.fillRect(sxp, y0 + h, 2 + rand() * 5, len);
+    }
     g.fillStyle = COLORS.red;
     g.fillRect(x0, y0, w, h);
     const ins = 0.09;
     g.fillStyle = '#0c0705';
     g.fillRect(x0 + ins * sx, y0 + ins * sy, w - 2 * ins * sx, h - 2 * ins * sy);
+    hg.fillStyle = 'rgb(40,40,40)';
+    hg.fillRect((x0 + ins * sx) / 2, (y0 + ins * sy) / 2, (w - 2 * ins * sx) / 2, (h - 2 * ins * sy) / 2);
+  }
+  // Lead scuppers just above each deck, with rust-brown runs below them.
+  for (const d of ['lower', 'middle', 'upper']) {
+    for (let x = -24; x < 24; x += 4.6) {
+      const hs = DECK[d] - 0.05;
+      const cx = px(x + (d === 'middle' ? 1.5 : 0)), cy = py(hs);
+      const grd = g.createLinearGradient(0, cy, 0, cy + 1.1 * sy);
+      grd.addColorStop(0, 'rgba(70,45,25,0.35)');
+      grd.addColorStop(1, 'rgba(70,45,25,0)');
+      g.fillStyle = grd;
+      g.fillRect(cx - 4, cy, 8, 1.1 * sy);
+      g.fillStyle = '#3e4042';
+      g.fillRect(cx - 5, cy - 4, 10, 8);
+      g.fillStyle = '#0a0806';
+      g.beginPath(); g.ellipse(cx, cy, 2.6, 2.2, 0, 0, Math.PI * 2); g.fill();
+      hg.fillStyle = 'rgb(150,150,150)';
+      hg.fillRect(cx / 2 - 3.5, cy / 2 - 3, 7, 6);
+      hg.fillStyle = 'rgb(30,30,30)';
+      hg.fillRect(cx / 2 - 1.5, cy / 2 - 1.5, 3, 3);
+    }
+  }
+
+  // Grime and weed just above the copper, following the waterline.
+  for (let i = 0; i < 256; i++) {
+    const xa = TEX_X0 + (i / 256) * (TEX_X1 - TEX_X0), xb = TEX_X0 + ((i + 1) / 256) * (TEX_X1 - TEX_X0);
+    const top = py(COPPER_TOP + 0.45 - sheer(xa)), bot = py(COPPER_TOP - sheer(xa));
+    const grd = g.createLinearGradient(0, top, 0, bot);
+    grd.addColorStop(0, 'rgba(45,55,35,0)');
+    grd.addColorStop(1, 'rgba(45,55,35,0.55)');
+    g.fillStyle = grd;
+    g.fillRect(px(xa), top, px(xb) - px(xa) + 1, bot - top);
   }
 
   // Copper sheathing below the (straight) waterline.
+  const copperPath = (ctx) => {
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let i = 0; i <= 256; i++) {
+      const x = TEX_X0 + (i / 256) * (TEX_X1 - TEX_X0);
+      ctx.lineTo(px(x), py(COPPER_TOP - sheer(x)));
+    }
+    ctx.lineTo(W, H);
+    ctx.closePath();
+  };
   g.save();
-  g.beginPath();
-  g.moveTo(0, H);
-  for (let i = 0; i <= 256; i++) {
-    const x = TEX_X0 + (i / 256) * (TEX_X1 - TEX_X0);
-    g.lineTo(px(x), py(COPPER_TOP - sheer(x)));
-  }
-  g.lineTo(W, H);
-  g.closePath();
+  copperPath(g);
   g.clip();
+  hg.save();
+  hg.scale(0.5, 0.5);
+  copperPath(hg);
+  hg.clip();
   g.fillStyle = COLORS.copper;
   g.fillRect(0, 0, W, H);
+  hg.fillStyle = 'rgb(128,128,128)';
+  hg.fillRect(0, 0, W, H);
   const pw = 1.22, ph = 0.36;
   for (let row = 0, hs = TEX_H0; hs < 3; hs += ph, row++) {
     for (let x = TEX_X0 - (row % 2) * pw * 0.5; x < TEX_X1; x += pw) {
@@ -120,9 +201,16 @@ export function hullTextures() {
         g.fillStyle = `rgba(70,140,110,${0.15 + rand() * 0.25})`;
         g.fillRect(px(x) + 1, py(hs + ph) + 1, pw * sx - 2, ph * sy - 2);
       }
+      // Overlapping plate edges and nail rows in the height field.
+      hg.fillStyle = 'rgb(165,165,165)';
+      hg.fillRect(px(x), py(hs + ph), 3, ph * sy);
+      hg.fillRect(px(x), py(hs + ph), pw * sx, 3);
+      hg.fillStyle = 'rgb(105,105,105)';
+      for (let k = 0; k < 12; k++) hg.fillRect(px(x) + 6 + k * (pw * sx - 12) / 11, py(hs + ph) + 6, 2, 2);
     }
   }
   g.restore();
+  hg.restore();
 
   // Metal/roughness map (G = roughness, B = metalness).
   m.fillStyle = 'rgb(0,165,0)';
@@ -138,7 +226,11 @@ export function hullTextures() {
   m.fillStyle = 'rgb(0,105,190)';
   m.fill();
 
-  return { map: toTexture(c, { aniso: 16 }), metalRough: toTexture(mr, { srgb: false }) };
+  return {
+    map: toTexture(c, { aniso: 16 }),
+    metalRough: toTexture(mr, { srgb: false }),
+    normal: toTexture(heightToNormal(hc), { srgb: false, aniso: 16 }),
+  };
 }
 
 // ---------- Inside face of the hull planking ----------

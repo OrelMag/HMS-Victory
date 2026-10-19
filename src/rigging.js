@@ -121,7 +121,7 @@ export class Rigging {
           const gi = Math.round((x - up.x0) / up.dx - 0.5);
           const gc = up.x0 + (gi + 0.5) * up.dx;
           const bx = gc + Math.max(-0.7, Math.min(0.7, x - gc));
-          const zh = halfBreadth(bx, yc - 2.6) + 0.06;
+          const zh = halfBreadth(bx, yc - 2.6) + 0.12;
           chain.push([lower.clone().add(V(0, -0.15, 0)), V(bx, yc - 2.6, side * zh)]);
           const top = head.clone().add(V(0, 0, side * (mast.r.lower + 0.12)));
           R.tag = `${mast.name} lower shroud`;

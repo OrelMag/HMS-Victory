@@ -148,6 +148,19 @@ export class Guns {
     this.lids.castShadow = true;
     this.lids.frustumCulled = false;
     this.group.add(this.lids);
+    // Iron hinge straps and a lifting ring on the outside of each lid (same transforms as the lids).
+    const hp = [];
+    for (const x of [-0.28, 0.28]) {
+      hp.push(new THREE.BoxGeometry(0.07, 0.92, 0.3).translate(x, -0.48, 1.12));
+      hp.push(new THREE.CylinderGeometry(0.045, 0.045, 0.16, 6).rotateZ(Math.PI / 2).translate(x, 0.0, 1.1));
+    }
+    hp.push(new THREE.BoxGeometry(0.14, 0.08, 0.5).translate(0, -0.86, 1.2));
+    this.hinges = new THREE.InstancedMesh(merge(hp), M.iron, this.lidPorts.length);
+    this.hinges.frustumCulled = false;
+    this.group.add(this.hinges);
+    // Port tackles: the lids are hauled up by ropes led through the side above the port.
+    this.lidRopes = new Ropes(this.group, M.rope, this.lidPorts.length * 2);
+    this.lidRopes.mesh.castShadow = false;
     // Breeching ropes: from ringbolts either side of each port to the cascabel of the gun.
     this.breeching = new Ropes(this.group, M.rope, this.ports.length * 6);
     this.breeching.mesh.castShadow = false;
@@ -170,8 +183,25 @@ export class Guns {
       S.makeScale(t.w + 0.12, t.h + 0.1, 0.11);
       m.copy(B).multiply(Rm).multiply(S);
       this.lids.setMatrixAt(i, m);
+      this.hinges.setMatrixAt(i, m);
     });
     this.lids.instanceMatrix.needsUpdate = true;
+    this.hinges.instanceMatrix.needsUpdate = true;
+    const LR = this.lidRopes;
+    LR.begin();
+    if (open > 0.05) {
+      const corner = new THREE.Vector3();
+      this.lidPorts.forEach((p, i) => {
+        this.lids.getMatrixAt(i, m);
+        const { a, up, n, p: c } = p.basis;
+        for (const s of [-0.32, 0.32]) {
+          corner.set(s, -0.92, 1.0).applyMatrix4(m);
+          const hole = c.clone().addScaledVector(up, p.tier.h / 2 + 0.42).addScaledVector(a, s * p.tier.w).addScaledVector(n, 0.03);
+          LR.add(corner, hole, 0.018);
+        }
+      });
+    }
+    LR.end();
 
     const q = new THREE.Quaternion(), pos = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
     const fwd = new THREE.Vector3(0, 0, 1);

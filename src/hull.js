@@ -42,6 +42,7 @@ export function buildHull() {
   // ---- Outer planking ----
   const hullMat = new THREE.MeshStandardMaterial({
     map: tex.map, roughnessMap: tex.metalRough, metalnessMap: tex.metalRough,
+    normalMap: tex.normal, normalScale: new THREE.Vector2(0.8, 0.8),
     roughness: 1, metalness: 1,
   });
   const pts = [];
@@ -52,6 +53,54 @@ export function buildHull() {
   outerMesh.castShadow = outerMesh.receiveShadow = true;
   outerMesh.name = 'planking';
   group.add(outerMesh);
+
+  // ---- Raised wales and mouldings (thicker strakes standing proud of the planking) ----
+  // Heights are relative to the sheer line, matching the paint bands on the texture.
+  const raised = [];
+  const strip = (hsA, hsB, thick, chamfer = 0.02) => {
+    const prof = [[hsA, 0], [hsA + chamfer, thick], [hsB - chamfer, thick], [hsB, 0]];
+    const hMid = (hsA + hsB) / 2;
+    const xa = xStern(hMid + sheer(-27)) + 0.05, xb = xBow(hMid) - 0.2;
+    const n = 160;
+    raised.push(mirroredGrid(n, prof.length, (i, j) => {
+      const x = lerp(xa, xb, i / (n - 1));
+      const [hs, off] = prof[j];
+      const h = hs + sheer(x);
+      const hb = halfBreadth(x, h);
+      return [x, h, hb > 0.05 ? hb + off * Math.min(1, hb / 1.5) : 0];
+    }, (i, j, p) => [texU(p[0]), texV(p[0], p[1])]));
+  };
+  strip(0.6, 1.1, 0.09);                         // main wales, below the lower-deck ports
+  strip(2.53, 3.22, 0.08);                       // middle wales, between the lower and middle ports
+  strip(4.54, 5.31, 0.07);                       // channel wales, between the middle and upper ports
+  strip(DECK.qd + 1.03, DECK.qd + 1.1, 0.04, 0.01); // moulding below the rail
+  const waleMesh = new THREE.Mesh(merge(raised), hullMat);
+  waleMesh.castShadow = waleMesh.receiveShadow = true;
+  waleMesh.name = 'wales';
+  group.add(waleMesh);
+
+  // Entry steps up the side to the entry port on the middle deck, with a fender each side.
+  {
+    const steps = [], fenders = [];
+    const ex = 2.0, top = deckY('middle', ex) + 0.1; // between the lower- and middle-deck ports
+    for (const side of [1, -1]) {
+      for (let h = 0.75; h < top; h += 0.32) {
+        const z = halfBreadth(ex, h) + 0.14;
+        const g = new THREE.BoxGeometry(0.55, 0.1, 0.16);
+        g.translate(ex, h, side * z);
+        steps.push(g);
+      }
+      for (const dx of [-0.42, 0.42]) {
+        const pts = [];
+        for (let h = 0.55; h <= top + 0.6; h += 0.25) pts.push(new THREE.Vector3(ex + dx, h, side * (halfBreadth(ex + dx, h) + 0.11)));
+        fenders.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.09, 6));
+      }
+    }
+    const sm = new THREE.Mesh(merge(steps), M.darkWood);
+    const fm = new THREE.Mesh(merge(fenders), M.black);
+    sm.castShadow = fm.castShadow = true;
+    group.add(sm, fm);
+  }
   // The inside of the planking: the same surface seen from within.
   const innerHull = new THREE.Mesh(outer, new THREE.MeshStandardMaterial({ map: interiorHullTexture(), roughness: 0.85, side: THREE.BackSide }));
   innerHull.name = 'innerPlanking';
