@@ -1,6 +1,6 @@
 // Shared materials.
 import * as THREE from 'three';
-import { COLORS, deckTexture, woodTexture, sailTexture, hammockTexture, reefSailTexture } from './textures.js';
+import { COLORS, deckTexture, woodTexture, sailTexture, hammockTexture, reefSailTexture, sailNormalTexture } from './textures.js';
 
 let cache = null;
 
@@ -11,6 +11,7 @@ export function mats() {
   const deckMap = deckTexture();
   const wood = woodTexture('#b08a58');
   const darkWood = woodTexture('#5a4630');
+  const sailN = sailNormalTexture();
   cache = {
     black: std(COLORS.black, 0.6),
     ochre: std(COLORS.ochre, 0.6),
@@ -27,9 +28,9 @@ export function mats() {
     darkWood: std('#ffffff', 0.75, 0, { map: darkWood }),
     rope: std('#3b2f22', 0.9),
     ropeLight: std('#8a7556', 0.9),
-    canvas: std('#ffffff', 0.92, 0, { map: sailTexture(), side: THREE.DoubleSide }),
-    canvasReef: std('#ffffff', 0.92, 0, { map: reefSailTexture(), side: THREE.DoubleSide }),
-    furl: std('#dcd2b8', 0.95),
+    canvas: std('#ffffff', 0.92, 0, { map: sailTexture(), normalMap: sailN, normalScale: new THREE.Vector2(0.5, 0.5), side: THREE.DoubleSide }),
+    canvasReef: std('#ffffff', 0.92, 0, { map: reefSailTexture(), normalMap: sailN, normalScale: new THREE.Vector2(0.5, 0.5), side: THREE.DoubleSide }),
+    furl: std('#c4b99c', 0.95),
     hammock: std('#ffffff', 0.95, 0, { map: hammockTexture() }),
     glass: std('#2b3a48', 0.15, 0.4, { emissive: '#000000' }),
     lantern: std('#ffd27a', 0.3, 0, { emissive: '#ffb347', emissiveIntensity: 0.0 }),

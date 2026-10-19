@@ -457,6 +457,28 @@ export function sailTexture() {
   return toTexture(c, { repeat: true });
 }
 
+// Cloth relief: doubled seams, slight puckering and weave, tiling with the sail texture.
+export function sailNormalTexture() {
+  const W = 256, H = 512, c = canvas(W, H), g = c.getContext('2d');
+  const rand = rng(12);
+  g.fillStyle = 'rgb(128,128,128)';
+  g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 260; i++) {
+    const v = 105 + rand() * 46;
+    g.fillStyle = `rgba(${v | 0},${v | 0},${v | 0},0.5)`;
+    g.fillRect(rand() * W, rand() * H, 2 + rand() * 6, 20 + rand() * 90);
+  }
+  for (let k = 0; k < 3; k++) {
+    const x = (k / 3) * W;
+    g.fillStyle = 'rgb(185,185,185)';
+    g.fillRect(x, 0, 5, H);
+    g.fillStyle = 'rgb(90,90,90)';
+    g.fillRect(x + 5, 0, 1.5, H);
+    g.fillRect(x - 1.5, 0, 1.5, H);
+  }
+  return toTexture(heightToNormal(c, 3), { srgb: false, repeat: true });
+}
+
 // Topsail cloth with three reef bands near the head (u tiles every 2 m, v spans the sail).
 export function reefSailTexture() {
   const W = 256, H = 1024, c = canvas(W, H), g = c.getContext('2d');

@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mats } from './materials.js';
 import { deckY, railTop, halfBreadth, TIERS } from './config.js';
-import { beamBetween, merge } from './geom.js';
+import { beamBetween, merge, mergeGeometries } from './geom.js';
 import { xform } from './sails.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -52,6 +52,37 @@ export class Ropes {
   }
 }
 
+// Wooden blocks placed along ropes (instanced), oriented along the rope.
+export class Blocks {
+  constructor(parent, capacity) {
+    const M = mats();
+    const g = new THREE.SphereGeometry(1, 8, 6).scale(0.11, 0.17, 0.075);
+    const strop = new THREE.TorusGeometry(0.085, 0.018, 4, 10).scale(1, 1.6, 1);
+    const geo = mergeGeometries([g, strop.translate(0, 0, 0)].map((q) => q.toNonIndexed()));
+    this.mesh = new THREE.InstancedMesh(geo, M.darkWood, capacity);
+    this.mesh.count = 0;
+    this.mesh.frustumCulled = false;
+    this.mesh.castShadow = true;
+    parent.add(this.mesh);
+    this.capacity = capacity;
+    this._m = new THREE.Matrix4(); this._q = new THREE.Quaternion();
+  }
+  begin() { this.n = 0; }
+  // Block at a, `t` metres along the rope towards b.
+  add(a, b, t = 0.35, scale = 1) {
+    if (this.n >= this.capacity) return;
+    const d = new THREE.Vector3().subVectors(b, a);
+    const L = d.length();
+    if (L < 1e-3) return;
+    d.multiplyScalar(1 / L);
+    const p = a.clone().addScaledVector(d, Math.min(t, L * 0.5));
+    this._q.setFromUnitVectors(UP, d);
+    this._m.compose(p, this._q, new THREE.Vector3(scale, scale, scale));
+    this.mesh.setMatrixAt(this.n++, this._m);
+  }
+  end() { this.mesh.count = this.n; this.mesh.instanceMatrix.needsUpdate = true; }
+}
+
 export class Rigging {
   constructor(rig) {
     const M = mats();
@@ -60,7 +91,8 @@ export class Rigging {
     this.standing = new Ropes(this.space, M.rope, 9000);
     this.running = new Ropes(this.space, M.ropeLight, 600);
     // Lines that lie on the sails (buntlines, leechlines, clewlines, brails).
-    this.sailLines = new Ropes(this.space, M.ropeLight, 2000);
+    this.sailLines = new Ropes(this.space, M.ropeLight, 7000);
+    this.blocks = new Blocks(this.space, 400);
     this.sailLines.mesh.castShadow = false;
     this.fittings = new THREE.Group();
     this.space.add(this.fittings);
@@ -252,6 +284,8 @@ export class Rigging {
     const rig = this.rig;
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
     R.begin();
+    const B = this.blocks;
+    B.begin();
     const Mn = rig.masts.main, Mz = rig.masts.mizzen;
     const braceTarget = (mast, yard, side) => {
       const s = side;
@@ -277,9 +311,15 @@ export class Rigging {
         for (const side of [1, -1]) {
           const arm = xform(V(0, 0, side * yard.L * 0.48), yard.group, this.space);
           R.tag = `${mast.name} ${yard.name} lift`;
-          R.add(arm, head.clone().add(V(0, 0, side * 0.3)), 0.025);
+          const lh = head.clone().add(V(0, 0, side * 0.3));
+          R.add(arm, lh, 0.025);
+          B.add(lh, arm, 0.25, 0.8 + 0.2 * mast.scale);
+          B.add(arm, lh, 0.3, 0.7 + 0.2 * mast.scale);
           R.tag = `${mast.name} ${yard.name} brace`;
-          R.addSag(arm, braceTarget(mast, yard, side), 0.022, 0.012, 3);
+          const bt = braceTarget(mast, yard, side);
+          R.addSag(arm, bt, 0.022, 0.012, 3);
+          B.add(arm, bt, 0.9, 0.8 + 0.2 * mast.scale);
+          B.add(bt, arm, 0.3, 0.8);
         }
         // Tie, and the halyard fall coming down abaft the mast to the deck.
         R.tag = `${mast.name} ${yard.name} tie`;
@@ -352,6 +392,7 @@ export class Rigging {
       R.addSag(arm, V(26.5, railTop(26.5) + 0.3, side * 3.5), 0.02, 0.02, 3);
     }
     R.end();
+    B.end();
     this.updateSailLines(sails);
   }
 
@@ -380,6 +421,22 @@ export class Rigging {
       if (extra) R.add(prev, extra.clone().applyMatrix4(m), r);
     };
     const FWD = new THREE.Vector3(1, 0, 0);
+    // Position on a sail grid at fractional (u, v), with its normal, in rig space.
+    const sample = (s, u, v, off, front) => {
+      const fi = u * (s.NU - 1), fj = v * (s.NV - 1);
+      const i0 = Math.min(s.NU - 2, Math.floor(fi)), j0 = Math.min(s.NV - 2, Math.floor(fj));
+      const fu = fi - i0, fv = fj - j0;
+      // On the same two triangles the sail is drawn with (a-b-d and a-d-c), not a bilinear patch.
+      const A = point(s, i0, j0, off, front), Bp = point(s, i0 + 1, j0, off, front);
+      const C = point(s, i0, j0 + 1, off, front), D = point(s, i0 + 1, j0 + 1, off, front);
+      if (fu >= fv) return A.addScaledVector(Bp.clone().sub(A), fu).addScaledVector(D.clone().sub(Bp), fv);
+      return A.addScaledVector(C.clone().sub(A), fv).addScaledVector(D.clone().sub(C), fu);
+    };
+    // Bolt ropes round the free edges of a sail grid.
+    const edgeRope = (s, cols, rowsFoot, r = 0.022) => {
+      for (const i of cols) for (let j = 0; j < s.NV - 1; j++) R.add(point(s, i, j, 0, FWD), point(s, i, j + 1, 0, FWD), r);
+      if (rowsFoot != null) for (let i = 0; i < s.NU - 1; i++) R.add(point(s, i, rowsFoot, 0, FWD), point(s, i + 1, rowsFoot, 0, FWD), r);
+    };
     const BUNT = { course: [0.2, 0.4, 0.6, 0.8], topsail: [0.28, 0.5, 0.72], topgallant: [0.35, 0.65] };
     for (const s of sails.square) {
       if (!s.mesh.visible || !BUNT[s.kind]) continue;
@@ -390,6 +447,26 @@ export class Rigging {
         const i = Math.round(u * (s.NU - 1));
         const z = -hw + (2 * hw * i) / (s.NU - 1);
         along(s, i, 0.06, FWD, 0.018, new THREE.Vector3(s.yard.r + 0.05, s.yard.r * 0.6, z));
+      }
+      R.tag = `${s.name} bolt rope`;
+      edgeRope(s, [0, s.NU - 1], s.NV - 1);
+      // Reef points: short lines hanging from both faces along each reef band of the topsails.
+      if (s.reef && s.mesh.visible) {
+        R.tag = `${s.name} reef points`;
+        const width = s.yard.L * 0.93;
+        const n = Math.round(width / 0.6);
+        for (const v of [0.12, 0.24, 0.36]) {
+          if (v > s.setNow - 0.02) continue;
+          for (let k = 1; k < n; k++) {
+            for (const off of [0.05, -0.05]) {
+              // They hang against the canvas, following its curve.
+              const vs = v / Math.max(0.05, s.setNow), dv = 0.26 / Math.max(1, s.height || 10);
+              const off2 = off * 1.6;
+              const p = sample(s, k / n, vs, off2, FWD), q = sample(s, k / n, Math.min(1, vs + dv), off2, FWD);
+              R.add(p, q, 0.008);
+            }
+          }
+        }
       }
       if (s.kind === 'course') {
         R.tag = `${s.name} leechline`;
@@ -403,10 +480,20 @@ export class Rigging {
         R.add(c, new THREE.Vector3(-0.25, -s.yard.r, side * hw * 0.55).applyMatrix4(m), 0.018);
       }
     }
+    // Bolt ropes on the leech and foot of the headsails and staysails.
+    for (const s of sails.stay) {
+      if (!s.mesh.visible) continue;
+      m.multiplyMatrices(inv, s.mesh.matrixWorld);
+      R.tag = `${s.name} bolt rope`;
+      for (let j = 0; j < s.NV - 1; j++) R.add(point(s, s.NU - 1, j, 0, FWD), point(s, s.NU - 1, j + 1, 0, FWD), 0.02);
+      for (let i = 0; i < s.NU - 1; i++) R.add(point(s, i, 0, 0, FWD), point(s, i + 1, 0, 0, FWD), 0.02);
+    }
     // Spanker brails, round both faces of the sail from the leech to the mast.
     const sp = sails.spanker;
     if (sp.mesh.visible) {
       m.multiplyMatrices(inv, sp.mast.group.matrixWorld);
+      R.tag = 'spanker bolt rope';
+      for (let j = 0; j < sp.NV - 1; j++) R.add(point(sp, sp.NU - 1, j, 0, FWD), point(sp, sp.NU - 1, j + 1, 0, FWD), 0.02);
       R.tag = 'spanker brail';
       const side = new THREE.Vector3(0, 0, 1);
       for (const v of [0.3, 0.55, 0.8]) {

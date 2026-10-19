@@ -2,6 +2,7 @@
 // Each sail has a "set" value: 1 = set and drawing, 0 = furled.
 import * as THREE from 'three';
 import { mats } from './materials.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { deckY, railTop, halfBreadth } from './config.js';
 
 const _m = new THREE.Matrix4();
@@ -30,6 +31,33 @@ function sailGeometry(nu, nv) {
 
 const smooth = (t) => t * t * (3 - 2 * t);
 
+// A sail furled on its yard: fat in the bunt, lumpy between the gaskets that hold it, with
+// the gaskets themselves (axis along y, like a capsule).
+export function furledSail(L, R) {
+  const M = mats();
+  const prof = [];
+  const n = 60, gap = 1.35;
+  for (let i = 0; i <= n; i++) {
+    const y = -L / 2 + (i / n) * L, t = (2 * y) / L;
+    const bunt = 0.5 + 0.5 * Math.pow(Math.max(0, 1 - t * t), 0.7);
+    const lump = 0.9 + 0.1 * Math.abs(Math.sin((Math.PI * y) / gap));
+    const end = Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(t), 8)));
+    prof.push(new THREE.Vector2(Math.max(0.001, R * bunt * lump * end), y));
+  }
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.LatheGeometry(prof, 12), M.furl);
+  body.castShadow = true;
+  g.add(body);
+  const rings = [];
+  for (let y = gap * Math.ceil(-L / 2 / gap + 0.3); y < L / 2 - 0.3; y += gap) {
+    const t = (2 * y) / L;
+    const r = R * (0.5 + 0.5 * Math.pow(Math.max(0, 1 - t * t), 0.7)) * 0.9;
+    rings.push(new THREE.TorusGeometry(r, 0.022, 4, 14).rotateX(Math.PI / 2).translate(0, y, 0));
+  }
+  if (rings.length) g.add(new THREE.Mesh(mergeGeometries(rings), M.rope));
+  return g;
+}
+
 export class SquareSail {
   // foot: { yard } (clews at the yardarms of the yard below) or { drop } (course: metres below the yard)
   constructor(name, yard, foot, fullness) {
@@ -49,16 +77,16 @@ export class SquareSail {
     yard.group.add(this.mesh);
     const fl = yard.L * 0.86;
     const fr = Math.min(0.38, 0.12 + yard.L * 0.009);
-    this.furl = new THREE.Mesh(new THREE.CapsuleGeometry(fr, fl - 2 * fr, 4, 10), M.furl);
+    this.furl = furledSail(fl, fr * 1.15);
     this.furl.rotation.x = Math.PI / 2;
     this.furl.position.set(0.12, yard.r + fr * 0.7, 0);
-    this.furl.castShadow = true;
     yard.group.add(this.furl);
     this.set = -1;
   }
 
   update(set, wind, time, luff = 0) {
     const NU = this.NU, NV = this.NV, y = this.yard;
+    this.setNow = set;
     const show = set > 0.015;
     this.mesh.visible = show;
     const fs = 1 - smooth(Math.min(1, set / 0.35));
@@ -80,6 +108,7 @@ export class SquareSail {
       F1 = new THREE.Vector3(0.6, -d, hw * 0.74);
     }
     const height = (F0.y + F1.y) / 2 * -1;
+    this.height = Math.max(1, height);
     const belly = this.fullness * wind * set;
     const pos = this.geo.attributes.position.array, uv = this.geo.attributes.uv.array;
     const ripple = Math.sin(time * 2.1 + y.L) * 0.04 * wind;
@@ -100,6 +129,11 @@ export class SquareSail {
         x += belly * b * (1 + ripple * Math.sin(u * 9 + time * 3));
         // Gathering wrinkles while clewing up.
         x += (1 - set) * 0.25 * Math.sin(u * Math.PI * 14) * v;
+        // Tension wrinkles fanning in from the clews.
+        for (const cu of [0, 1]) {
+          const d = Math.hypot(u - cu, (v - 1) * 0.7);
+          if (d < 0.35) x += belly * 0.06 * Math.sin(d * 45 + Math.atan2(v - 1, u - cu) * 6) * (1 - d / 0.35);
+        }
         // Shivering when the wind is too far forward to fill her.
         if (luff > 0) x += luff * 0.3 * (0.5 + 0.5 * Math.sin(time * 9 + u * 7 + v * 4)) * Math.sin(Math.PI * u) * v;
         pos[k * 3] = x; pos[k * 3 + 1] = py; pos[k * 3 + 2] = z;
